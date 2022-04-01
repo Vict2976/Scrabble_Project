@@ -3,6 +3,7 @@
 
 module internal StateMonad
 
+   open System
     type Error = 
         | VarExists of string
         | VarNotFound of string
@@ -48,13 +49,23 @@ module internal StateMonad
     let push : SM<unit> = 
         S (fun s -> Success ((), {s with vars = Map.empty :: s.vars}))
 
-    let pop : SM<unit> = failwith "Not implemented"      
+    let pop : SM<unit> = S (fun s -> Success ((), {s with vars = List.tail s.vars}))     
 
-    let wordLength : SM<int> = failwith "Not implemented"      
+    let wordLength : SM<int> = S (fun s -> Success ((List.length s.word), s))
+    
 
-    let characterValue (pos : int) : SM<char> = failwith "Not implemented"      
-
-    let pointValue (pos : int) : SM<int> = failwith "Not implemented"      
+    let characterValue (pos : int) : SM<char> =
+        S(fun s ->
+        match List.tryItem pos s.word with
+           | Some p -> Success ((p |> fst), s)
+           | None -> Failure(IndexOutOfBounds pos)                                                                            
+    )                                                                   
+                                                                               
+    let pointValue (pos : int) : SM<int> = S(fun s ->
+        match List.tryItem pos s.word with
+           | Some p -> Success ((p |> snd), s)
+           | None -> Failure(IndexOutOfBounds pos)                                                                            
+    )      
 
     let lookup (x : string) : SM<int> = 
         let rec aux =
@@ -70,5 +81,27 @@ module internal StateMonad
               | Some v -> Success (v, s)
               | None   -> Failure (VarNotFound x))
 
+    
+ 
+ //let pop : SM<unit> = S (fun s -> Success ((), {s with vars = List.tail s.vars}))     
+(* type State = { vars     : Map<string, int> list
+                   word     : (char * int) list 
+                   reserved : Set<string> }
+
+    type SM<'a> = S of (State -> Result<'a * State, Error>)*)
+    //let state = mkState [("x", 5); ("y", 42)] hello ["_pos_"; "_result_"]
     let declare (var : string) : SM<unit> = failwith "Not implemented"   
-    let update (var : string) (value : int) : SM<unit> = failwith "Not implemented"      
+    let update (var : string) (value : int) : SM<unit> =
+        let rec aux lst acc : Map<string, int> list option=
+            match lst with
+            | []      -> None
+            | m :: ms -> 
+                match Map.tryFind var m with
+                | Some v -> Some (acc @ [Map.add var value m] @ ms) 
+                | None   -> aux ms (m::acc)
+
+        S (fun s -> 
+              match aux (s.vars) [] with
+              | Some v -> Success ((), {s with vars = v})
+              | None   -> Failure (VarNotFound var))
+              
