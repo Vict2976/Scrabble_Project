@@ -6,7 +6,7 @@
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Company>IT University of Copenhagen</Company>
     
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <PackageId>NiwlSamdVibr</PackageId>
     <AssemblyName>NiwlSamdVibr</AssemblyName>
     <Authors>Kristian Samdal Nikolai Larsen Victor Brorson </Authors>
