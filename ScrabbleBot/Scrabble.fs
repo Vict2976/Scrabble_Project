@@ -1,4 +1,4 @@
-﻿namespace YourClientName
+﻿namespace NiwlSamdVibr
 
 open ScrabbleUtil
 open ScrabbleUtil.ServerCommunication
@@ -40,12 +40,17 @@ module State =
     // Currently, it only keeps track of your hand, your player numer, your board, and your dictionary,
     // but it could, potentially, keep track of other useful
     // information, such as number of players, player turn, etc.
-
+    
+    type placedTile = coord * (uint32 * (char * int))
+    type placedWord = placedTile list
+    
     type state = {
         board         : Parser.board
         dict          : ScrabbleUtil.Dictionary.Dict
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
+        
+        // Hvilke brikker ligger der?? (Map<coord, en slags tile>)
     }
 
     let mkState b d pn h = {board = b; dict = d;  playerNumber = pn; hand = h }
@@ -54,6 +59,8 @@ module State =
     let dict st          = st.dict
     let playerNumber st  = st.playerNumber
     let hand st          = st.hand
+    
+    //let updateHand ms newpieces=
 
 module Scrabble =
     open System.Threading
@@ -76,6 +83,7 @@ module Scrabble =
 
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
+                // newPieces: (uint32 * uint32) list. (id * antal) list
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
                 let st' = st // This state needs to be updated
                 aux st'

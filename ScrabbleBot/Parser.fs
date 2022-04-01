@@ -162,7 +162,7 @@ module internal Parser
     do sref:= choice[value;declareStm]
 
 (* These five types will move out of this file once you start working on the project *)
-    type coord      = int * int
+    (*type coord      = int * int
     type squareProg = Map<int, string>
     type boardProg  = {
             prog       : string;
@@ -172,21 +172,22 @@ module internal Parser
     
             isInfinite : bool   // For pretty-printing purposes only
             ppSquare   : string // For pretty-printing purposes only
-        }
+        }*)
 
     type word   = (char * int) list
+    type squareFun = word -> int -> int -> Result<int, Error>
     type square = Map<int, squareFun>
 
     let parseSquareProg _ = failwith "not implemented"
 
     let parseBoardProg _ = failwith "not implemented"
 
-    type boardFun2 = coord -> StateMonad.Result<square option, StateMonad.Error>
+    type boardFun2 = coord -> Result<square option, Error>
     type board = {
         center        : coord
         defaultSquare : square
         squares       : boardFun2
     }
 
-    let mkBoard (bp : boardProg) = failwith "not implemented"
+    let mkBoard : boardProg -> board = fun _ -> {center = (0,0); defaultSquare = Map.empty; squares = fun _ -> Success (Some Map.empty)}
 
