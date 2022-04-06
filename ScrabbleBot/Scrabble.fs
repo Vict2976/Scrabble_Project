@@ -84,9 +84,12 @@ module Scrabble =
 
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
-                let a = snd ms.Head
-                let first = fst a
-                let newSet = MultiSet.removeSingle (first) (st.hand)
+                let lst = List.map (fun (_, (u, _)) -> u) ms
+                
+                let newSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst
+                
+                
+               // let newSet = MultiSet.removeSingle (first) (st.hand)
                 // let newSet = List.map(fun x  -> MultiSet.removeSingle (first) (st.hand))
                 // newPieces: (uint32 * uint32) list. (id * antal) list
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
