@@ -1,5 +1,6 @@
 ﻿namespace NiwlSamdVibr
 
+open MultiSet
 open ScrabbleUtil
 open ScrabbleUtil.ServerCommunication
 
@@ -60,7 +61,7 @@ module State =
     let playerNumber st  = st.playerNumber
     let hand st          = st.hand
     
-    //let updateHand ms newpieces=
+    //let removeFromHand ms = 
 
 module Scrabble =
     open System.Threading
@@ -83,9 +84,13 @@ module Scrabble =
 
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
+                let a = snd ms.Head
+                let first = fst a
+                let newSet = MultiSet.removeSingle (first) (st.hand)
+                // let newSet = List.map(fun x  -> MultiSet.removeSingle (first) (st.hand))
                 // newPieces: (uint32 * uint32) list. (id * antal) list
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = st // This state needs to be updated
+                let st' = {st with hand = newSet}// This state needs to be updated
                 aux st'
             | RCM (CMPlayed (pid, ms, points)) ->
                 (* Successful play by other player. Update your state *)

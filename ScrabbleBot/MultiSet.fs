@@ -2,52 +2,40 @@
 
 module internal MultiSet
 
-    type 'a MultiSet when 'a: comparison = MS of Map<'a, uint32>
+    type MultiSet<'a when 'a: comparison> = Map<'a, uint32>
     
+    //ype MultiSet = S of Map<'a, uint32> when 'a : comparison
 
-    let empty = MS (Map.empty)
-    let isEmpty (MS s) = Map.isEmpty s
-    let size (MS s) = Map.fold (fun acc key value -> acc + value) 0u s
+    let empty = Map.empty<'a, uint32>
     
-    let contains a (MS s) =
-        match Map.tryFind a s with
-        | Some value -> true
-        | None -> false
-       
-       
-    let numItems a (MS s) =
-        match Map.tryFind a s with
-        | Some value -> value
-        | None -> 0u
-       
+    let isEmpty (input : MultiSet<'a>) = Map.isEmpty input
     
-    let add a n (MS s) =
-        match Map.tryFind a s with
-        | Some value -> Map.add a (n+value) s
-        | None -> Map.add a n s
-        |> MS 
+    let size (input : MultiSet<'a>) = Map.fold(fun acc k v -> acc + v) 0u input
     
-    let addSingle a (MS s) =
-        match Map.tryFind a s with
-        | Some value -> Map.add a (value+1u) s
-        | None -> Map.add a 1u s
-        |> MS
+    let contains (a : 'a) (input : MultiSet<'a>) = Map.containsKey a input
     
+    let numItems (a : 'a) (input : MultiSet<'a>) = try Map.find a input with _ -> 0u
     
-    let remove a n (MS s) =
-        match Map.tryFind a s with
-        | Some value -> if (value <= n) then Map.remove a s
-                        else Map.add a (value - n) s
-        | None -> s
-        |> MS
+    let add key value (input : MultiSet<'a>) =
+        match Map.tryFind key input with
+        | Some p -> Map.add key (value + p) input
+        | None -> Map.add key value input
     
-    let removeSingle a (MS s) =
-        match Map.tryFind a s with
-        | Some value -> if (value-1u)< 0u then Map.add a 0u s
-                        else Map.add a (value-1u) s
-        | None -> s
-        |> MS
-        
-    let fold f acc (MS s) = Map.fold f acc s
+    let addSingle key (input : MultiSet<'a>) = //Evt bare kald add key 1u input
+        match Map.tryFind key input with
+        | Some p -> Map.add key (1u + p) input
+        | None -> Map.add key 1u input
     
-    let foldBack f (MS s) acc = Map.foldBack f s acc
+    let remove key value (input : MultiSet<'a>) =
+        match Map.tryFind key input with
+        | Some p -> if value < p then Map.add key (p-value) input else Map.remove key input
+        | None -> input
+    
+    let removeSingle key (input : MultiSet<'a>) =
+        match Map.tryFind key input with
+        | Some p -> if 1u < p then Map.add key (p-1u) input else Map.remove key input
+        | None -> input
+    
+    let fold func acc (input : MultiSet<'a>) = Map.fold func acc input
+    
+    let foldBack func (input : MultiSet<'a>) acc = Map.foldBack func input acc

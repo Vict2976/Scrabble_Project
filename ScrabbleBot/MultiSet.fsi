@@ -2,7 +2,7 @@
 
 module internal MultiSet
 
-    type 'a MultiSet when 'a: comparison //= MS of Map<'a, uint32>
+    type MultiSet<'a when 'a: comparison> = Map<'a, uint32>
 
     val empty : MultiSet<'a>
     val isEmpty : MultiSet<'a> -> bool
