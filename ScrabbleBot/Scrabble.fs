@@ -86,8 +86,11 @@ module Scrabble =
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 let lst = List.map (fun (_, (u, _)) -> u) ms
                 
-                let newSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst
-                
+                let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst
+                                      
+                let lst1 = List.map (fun (u, _) -> u) newPieces
+
+                let newSet = List.fold(fun acc x -> MultiSet.addSingle x acc) deletedSet lst1
                 
                // let newSet = MultiSet.removeSingle (first) (st.hand)
                 // let newSet = List.map(fun x  -> MultiSet.removeSingle (first) (st.hand))
