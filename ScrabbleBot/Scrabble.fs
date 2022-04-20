@@ -50,16 +50,18 @@ module State =
         dict          : ScrabbleUtil.Dictionary.Dict
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
+        boardTiles    : Map<coord, char>
         
         // Hvilke brikker ligger der?? (Map<coord, en slags tile>)
     }
 
-    let mkState b d pn h = {board = b; dict = d;  playerNumber = pn; hand = h }
+    let mkState b d pn h bt = {board = b; dict = d;  playerNumber = pn; hand = h; boardTiles = bt}
 
     let board st         = st.board
     let dict st          = st.dict
     let playerNumber st  = st.playerNumber
     let hand st          = st.hand
+    let boardTiles st   = st.boardTiles
     
     //let removeFromHand ms (st : state) : state =
         //st.hand 
@@ -71,7 +73,6 @@ module Scrabble =
 
         let rec aux (st : State.state) =
             Print.printHand pieces (State.hand st)
-            
             
             let rec addAmount tileSet list (amount:uint) =
                 match amount with
@@ -92,7 +93,6 @@ module Scrabble =
                 
             let id = MultiSet.foldBack (fun id n acc -> add id acc n) st.hand []
             
-            
             let tile : coord * (uint32 * (char * int)) = (0,0), (id.[0], (chars.[0], pointValues.[0]))
             let tileTwo : coord * (uint32 * (char * int)) = (0,1), (id.[1], (chars.[1], pointValues.[1]))
             let tileThree : coord * (uint32 * (char * int)) = (0,2), (id.[2], (chars.[2], pointValues.[2]))
@@ -101,8 +101,6 @@ module Scrabble =
          
             printf "WOOOOORD: %A" (string word)
 
-            
-            
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
             let move = word
@@ -149,7 +147,8 @@ module Scrabble =
             (playerTurn  : uint32) 
             (hand : (uint32 * uint32) list)
             (tiles : Map<uint32, tile>)
-            (timeout : uint32 option) 
+            (timeout : uint32 option)
+            (boardTiles : Map<coord, char>)
             (cstream : Stream) =
         debugPrint 
             (sprintf "Starting game!
@@ -162,8 +161,9 @@ module Scrabble =
         //let dict = dictf true // Uncomment if using a gaddag for your dictionary
         let dict = dictf false // Uncomment if using a trie for your dictionary
         let board = Parser.mkBoard boardP
+        
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet)
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet boardTiles)
         
