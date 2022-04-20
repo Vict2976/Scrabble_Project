@@ -70,7 +70,18 @@ module Scrabble =
 
         let rec aux (st : State.state) =
             Print.printHand pieces (State.hand st)
-
+            
+            let rec addAmount tileSet list (amount:uint) =
+                match amount with
+                | 0u -> list
+                | _ -> addAmount tileSet (tileSet::list) (amount-1u)
+            
+            let findTiles pieces hand = MultiSet.fold (fun acc id amount-> addAmount (Map.find id pieces) acc amount) [] hand
+            
+            let newHand  = findTiles pieces st.hand               
+                                               
+            let word = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) @ acc) [] newHand
+                                   
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
             let input =  System.Console.ReadLine()
@@ -85,11 +96,8 @@ module Scrabble =
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 let lst = List.map (fun (_, (u, _)) -> u) ms
-                
-                let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst
-                                      
+                let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst                                     
                 let lst1 = List.map (fun (u, _) -> u) newPieces
-
                 let newSet = List.fold(fun acc x -> MultiSet.addSingle x acc) deletedSet lst1
                 
                // let newSet = MultiSet.removeSingle (first) (st.hand)
