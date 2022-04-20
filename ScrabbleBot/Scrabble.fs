@@ -84,8 +84,13 @@ module Scrabble =
             let chars = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) @ acc) [] newHand
             let pointValues = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
             
+            
+            let rec add tileSet list (amount:uint) =
+                match amount with
+                | 0u -> list
+                | _ -> add tileSet (tileSet::list) (amount-1u)
                 
-            let id = MultiSet.foldBack (fun id n acc ->  id :: acc) st.hand []
+            let id = MultiSet.foldBack (fun id n acc -> add id acc n) st.hand []
             
             
             let tile : coord * (uint32 * (char * int)) = (0,0), (id.[0], (chars.[0], pointValues.[0]))
