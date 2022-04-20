@@ -71,6 +71,7 @@ module Scrabble =
         let rec aux (st : State.state) =
             Print.printHand pieces (State.hand st)
             
+            
             let rec addAmount tileSet list (amount:uint) =
                 match amount with
                 | 0u -> list
@@ -78,10 +79,24 @@ module Scrabble =
             
             let findTiles pieces hand = MultiSet.fold (fun acc id amount-> addAmount (Map.find id pieces) acc amount) [] hand
             
-            let newHand  = findTiles pieces st.hand               
+            let newHand  = findTiles pieces st.hand
                                                
             let word = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) @ acc) [] newHand
-                                   
+            
+            let values = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
+
+            let id = MultiSet.foldBack (fun id _ acc -> id :: acc) st.hand []
+            
+            printf "ID: %A" (string id.Head)
+            printf "CHAR: %A" (string word.Head)
+            printf "PV: %A" (string values.Head)
+            
+            printf "ID: %A" (string id.[1])
+            printf "CHAR: %A" (string word.[1])
+            printf "PV: %A" (string values.[1])
+
+            
+            
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
             let input =  System.Console.ReadLine()
