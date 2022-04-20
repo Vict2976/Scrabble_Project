@@ -61,7 +61,8 @@ module State =
     let playerNumber st  = st.playerNumber
     let hand st          = st.hand
     
-    //let removeFromHand ms = 
+    //let removeFromHand ms (st : state) : state =
+        //st.hand 
 
 module Scrabble =
     open System.Threading
@@ -78,29 +79,28 @@ module Scrabble =
                 | _ -> addAmount tileSet (tileSet::list) (amount-1u)
             
             let findTiles pieces hand = MultiSet.fold (fun acc id amount-> addAmount (Map.find id pieces) acc amount) [] hand
-            
             let newHand  = findTiles pieces st.hand
-                                               
-            let word = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) @ acc) [] newHand
             
-            let values = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
-
-            let id = MultiSet.foldBack (fun id _ acc -> id :: acc) st.hand []
+            let chars = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) @ acc) [] newHand
+            let pointValues = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
             
-            printf "ID: %A" (string id.Head)
-            printf "CHAR: %A" (string word.Head)
-            printf "PV: %A" (string values.Head)
+                
+            let id = MultiSet.foldBack (fun id n acc ->  id :: acc) st.hand []
             
-            printf "ID: %A" (string id.[1])
-            printf "CHAR: %A" (string word.[1])
-            printf "PV: %A" (string values.[1])
+            
+            let tile : coord * (uint32 * (char * int)) = (0,0), (id.[0], (chars.[0], pointValues.[0]))
+            let tileTwo : coord * (uint32 * (char * int)) = (0,1), (id.[1], (chars.[1], pointValues.[1]))
+            let tileThree : coord * (uint32 * (char * int)) = (0,2), (id.[2], (chars.[2], pointValues.[2]))
+            
+            let word = [tile; tileTwo; tileThree]
+         
+            printf "WOOOOORD: %A" (string word)
 
             
             
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
-            let input =  System.Console.ReadLine()
-            let move = RegEx.parseMove input
+            let move = word
 
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
             send cstream (SMPlay move)
