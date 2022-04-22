@@ -73,6 +73,7 @@ module Scrabble =
 
         let rec aux (st : State.state) =
             Print.printHand pieces (State.hand st)
+            printfn "Updated Map: %A" st.boardTiles
             
             (*let rec addAmount tileSet list (amount:uint) =
                 match amount with
@@ -117,16 +118,18 @@ module Scrabble =
 
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
+                //Updating hand
                 let lst = List.map (fun (_, (u, _)) -> u) ms
                 let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst                                     
                 let lst1 = List.map (fun (u, _) -> u) newPieces
                 let newSet = List.fold(fun acc x -> MultiSet.addSingle x acc) deletedSet lst1
                 
-               // let newSet = MultiSet.removeSingle (first) (st.hand)
-                // let newSet = List.map(fun x  -> MultiSet.removeSingle (first) (st.hand))
-                // newPieces: (uint32 * uint32) list. (id * antal) list
+                //Updating board
+                //val ms: (coord * (uint32 * (char * int))) list
+                let updateBoard = List.fold(fun x (coord,(_,(c,_)))-> Map.add coord c x) st.boardTiles ms                                
+                
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = {st with hand = newSet}// This state needs to be updated
+                let st' = {st with hand = newSet; boardTiles = updateBoard}// This state needs to be updated
                 aux st'
             | RCM (CMPlayed (pid, ms, points)) ->
                 (* Successful play by other player. Update your state *)
