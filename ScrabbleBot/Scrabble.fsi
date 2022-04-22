@@ -14,6 +14,6 @@ module Scrabble =
         (uint32 * uint32) list ->    (* starting hand (tile id, number of tiles) *)
         Map<uint32, tile> ->         (* Tile lookup table *)
         uint32 option ->             (* Timeout in miliseconds *)
-        Map<coord, char> ->    
+     
         Stream ->                    (* Communication channel to the server *)
         (unit -> unit)               (* Delay to allow everyone to start at the same time after setup *)

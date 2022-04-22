@@ -74,7 +74,7 @@ module Scrabble =
         let rec aux (st : State.state) =
             Print.printHand pieces (State.hand st)
             
-            let rec addAmount tileSet list (amount:uint) =
+            (*let rec addAmount tileSet list (amount:uint) =
                 match amount with
                 | 0u -> list
                 | _ -> addAmount tileSet (tileSet::list) (amount-1u)
@@ -99,11 +99,15 @@ module Scrabble =
             
             let word = [tile; tileTwo; tileThree]
          
-            printf "WOOOOORD: %A" (string word)
+            printf "WOOOOORD: %A" (string word)*)
+            
+            
 
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
-            let move = word
+            
+            let input =  System.Console.ReadLine()
+            let move = RegEx.parseMove input
 
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
             send cstream (SMPlay move)
@@ -148,7 +152,6 @@ module Scrabble =
             (hand : (uint32 * uint32) list)
             (tiles : Map<uint32, tile>)
             (timeout : uint32 option)
-            (boardTiles : Map<coord, char>)
             (cstream : Stream) =
         debugPrint 
             (sprintf "Starting game!
@@ -165,5 +168,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet boardTiles)
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet Map.empty)
         
