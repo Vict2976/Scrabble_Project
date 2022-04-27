@@ -64,7 +64,16 @@ module State =
     let boardTiles st   = st.boardTiles
     
     //let removeFromHand ms (st : state) : state =
-        //st.hand 
+        //st.hand
+        
+    //let rec findWord st =
+      //  MultiSet.fold (fun acc key value ->
+            // find char by key
+            // step into dict with the char
+            // remove char from hand
+            // call findWord recursively
+            
+           // ) [] st.hand
 
 module Scrabble =
     open System.Threading
@@ -75,7 +84,7 @@ module Scrabble =
             Print.printHand pieces (State.hand st)
             printfn "Updated Map: %A" st.boardTiles
             
-            (*let rec addAmount tileSet list (amount:uint) =
+            let rec addAmount tileSet list (amount:uint) =
                 match amount with
                 | 0u -> list
                 | _ -> addAmount tileSet (tileSet::list) (amount-1u)
@@ -94,13 +103,21 @@ module Scrabble =
                 
             let id = MultiSet.foldBack (fun id n acc -> add id acc n) st.hand []
             
-            let tile : coord * (uint32 * (char * int)) = (0,0), (id.[0], (chars.[0], pointValues.[0]))
-            let tileTwo : coord * (uint32 * (char * int)) = (0,1), (id.[1], (chars.[1], pointValues.[1]))
-            let tileThree : coord * (uint32 * (char * int)) = (0,2), (id.[2], (chars.[2], pointValues.[2]))
+            printfn "CharHand: %A" chars
+            printfn "Id's: %A" id
             
-            let word = [tile; tileTwo; tileThree]
-         
-            printf "WOOOOORD: %A" (string word)*)
+            let charWord = "HEY"
+            
+            let test = Dictionary.lookup charWord st.dict
+            let test1 =
+                Dictionary.step 'H' st.dict
+                |> Option.bind (fun (b, dict') ->
+                    Dictionary.step 'E' dict' |> Option.bind (fun (b, dict') ->
+                        Dictionary.step 'Y' dict'))
+                        
+            printfn "ATTEMPT: %A" test1
+
+            
             
             
 
@@ -126,7 +143,7 @@ module Scrabble =
                 
                 //Updating board
                 //val ms: (coord * (uint32 * (char * int))) list
-                let updateBoard = List.fold(fun x (coord,(_,(c,_)))-> Map.add coord c x) st.boardTiles ms                                
+                let updateBoard = List.fold(fun x (coord,(_,(c,_)))-> Map.add coord c x) st.boardTiles ms
                 
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
                 let st' = {st with hand = newSet; boardTiles = updateBoard}// This state needs to be updated
@@ -153,7 +170,7 @@ module Scrabble =
             (playerNumber : uint32) 
             (playerTurn  : uint32) 
             (hand : (uint32 * uint32) list)
-            (tiles : Map<uint32, tile>)
+            (tiles : Map<uint32, tile>) // !!!
             (timeout : uint32 option)
             (cstream : Stream) =
         debugPrint 
