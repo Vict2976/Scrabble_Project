@@ -108,18 +108,71 @@ module Scrabble =
             
             let charWord = "HEY"
             
-            let test = Dictionary.lookup charWord st.dict
+  //i findword, bogstaver vi har tilbage på hånd, der hvor vi er nået til i dict,
+  //char vi har ind til videre, det ord vi har fundet so far.
+            
+            //CurrentWord 'H'E'Z'
+            //FoundWord H'E
+            
+            //resterende hånd
+            // acc = resternde 6 nogstaver samtidig med FoundWord - Måske tuple?
+            //List.remove (elemtet som vi er kommet til) hand
+            
+           // acc = (i, foundWord)
+            
+            //Mangler: Sammenligne currentword med foundword og så retunere største ord 
+             
+            
+            let rec findWord (hand: list<char>) (D : Dictionary.Dict )(currentWord : list<char>) (FoundWord : list<char>) =
+                let aux (i, acc) e =
+                  match Dictionary.step e D with
+                  | Some (true, Drest) -> (i+1, findWord (List.removeAt i hand) Drest (e::currentWord) (e::currentWord))
+                  | Some (false, Drest) -> (i+1, findWord (List.removeAt i hand) Drest (e::currentWord) acc)
+                  | None -> (i, acc)
+                match hand with
+                | [] -> FoundWord
+                | hand1 -> List.fold aux (0, FoundWord) hand1 |> snd
+                    
+                
+            let test = findWord ['X';'H';'E';'L';'L';'O'] st.dict [] []
+            
+            printfn "ATTEMPT ::: %A" test
+
+            //fold hen over hånden
+            //
+            //  MultiSet.fold (fun acc key value ->
+            // find char by key
+            // step into dict with the char
+            // remove char from hand
+            // call findWord recursively
+            
+           // ) [] st.hand
+            
+            let test4 =
+                Dictionary.step 'H' st.dict
+                |> Option.bind (fun (b, dict') ->
+                    Dictionary.step 'E' dict' |> Option.bind (fun (b, dict') ->
+                        Dictionary.step 'Y' dict'))
+                
+            (*
             let test1 =
                 Dictionary.step 'H' st.dict
                 |> Option.bind (fun (b, dict') ->
                     Dictionary.step 'E' dict' |> Option.bind (fun (b, dict') ->
                         Dictionary.step 'Y' dict'))
-                        
-            printfn "ATTEMPT: %A" test1
-
             
-            
-            
+            let test2 =
+                Dictionary.step 'H' st.dict
+                |> Option.bind (fun (b, dict') ->
+                    Dictionary.step 'E' dict')
+                
+            let test3 = Dictionary.step 'H' st.dict
+             
+            printf "TEST H,E,Y,X: %A" test4
+            printf "TEST H,E,Y : %A" test1
+            printf "TEST H,E : %A" test2
+            printf "TEST H: %A" test3
+            *)
 
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
