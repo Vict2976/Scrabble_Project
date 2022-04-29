@@ -131,12 +131,40 @@ module Scrabble =
                   | None -> (i, acc)
                 match hand with
                 | [] -> FoundWord
-                | hand1 -> List.fold aux (0, FoundWord) hand1 |> snd
+                | hand1 -> List.fold aux (0, FoundWord) hand1 |> snd 
+                
                     
                 
-            let test = findWord ['X';'H';'E';'L';'L';'O'] st.dict [] []
+            //let test = findWord ['X';'H';'E';'L';'L';'O'] st.dict [] []
             
-            printfn "ATTEMPT ::: %A" test
+            //start of the game. If the map is empty findword from hand and play it.
+            let charToIntMapAlphabet = Map.add 'A' 1u Map.empty |> Map.add 'B' 2u |> Map.add 'C' 3u |> Map.add 'D' 4u |> Map.add 'E' 5u |> Map.add 'F' 6u
+                                       |> Map.add 'G' 7u|> Map.add 'H' 8u |> Map.add 'I' 9u |> Map.add 'J' 10u |> Map.add 'K' 11u |> Map.add 'L' 12u
+                                       |> Map.add 'M' 13u |> Map.add 'N' 14u |> Map.add 'O' 15u |> Map.add 'P' 16u |> Map.add 'Q' 17u |> Map.add 'R' 18u
+                                       |> Map.add 'S' 19u |> Map.add 'T' 20u |> Map.add 'U' 21u |> Map.add 'V' 22u |> Map.add 'W' 23u |> Map.add 'X' 24u
+                                       |> Map.add 'Y' 25u |> Map.add 'Z' 26u
+            
+            let playFirstMove =
+                if st.boardTiles.IsEmpty then List.rev (findWord chars st.dict [] []) else []
+            
+             
+            printfn "asdfasdf %A" playFirstMove                
+            
+            //val ms: (coord * (uint32 * (char * int))) list                                                     
+            let constructMove (chars:list<char>) =
+               let lenght = List.length chars
+                                                         
+               let firstBrik = ((0,0):coord),((Map.find (List.item 0 chars) charToIntMapAlphabet), Set.minElement (Map.find (Map.find (List.item 0 chars) charToIntMapAlphabet) pieces))
+               let secondBrik = ((1,0):coord),((Map.find (List.item 1 chars) charToIntMapAlphabet), Set.minElement(Map.find (Map.find (List.item 1 chars) charToIntMapAlphabet) pieces))
+               let thirdBrik = ((2,0):coord),((Map.find (List.item 2 chars) charToIntMapAlphabet), Set.minElement(Map.find (Map.find (List.item 2 chars) charToIntMapAlphabet) pieces))
+               let move = [firstBrik;secondBrik;thirdBrik]
+               move
+               
+               
+            let move = constructMove playFirstMove
+            printfn "KÆMPE TEST På Move %A" move 
+               
+          
 
             //fold hen over hånden
             //
@@ -153,7 +181,7 @@ module Scrabble =
                 |> Option.bind (fun (b, dict') ->
                     Dictionary.step 'E' dict' |> Option.bind (fun (b, dict') ->
                         Dictionary.step 'Y' dict'))
-                
+                                
             (*
             let test1 =
                 Dictionary.step 'H' st.dict
@@ -177,8 +205,8 @@ module Scrabble =
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
             
-            let input =  System.Console.ReadLine()
-            let move = RegEx.parseMove input
+            (*let input =  System.Console.ReadLine()
+            let move = RegEx.parseMove input*)
 
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
             send cstream (SMPlay move)
