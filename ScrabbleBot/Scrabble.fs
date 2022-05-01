@@ -103,10 +103,7 @@ module Scrabble =
                 
             let id = MultiSet.foldBack (fun id n acc -> add id acc n) st.hand []
             
-            printfn "CharHand: %A" chars
-            printfn "Id's: %A" id
             
-            let charWord = "HEY"
             
   //i findword, bogstaver vi har tilbage på hånd, der hvor vi er nået til i dict,
   //char vi har ind til videre, det ord vi har fundet so far.
@@ -121,6 +118,7 @@ module Scrabble =
            // acc = (i, foundWord)
             
             //Mangler: Sammenligne currentword med foundword og så retunere største ord 
+            
              
             
             let rec findWord (hand: list<char>) (D : Dictionary.Dict )(currentWord : list<char>) (FoundWord : list<char>) =
@@ -148,21 +146,23 @@ module Scrabble =
                 if st.boardTiles.IsEmpty then List.rev (findWord chars st.dict [] []) else []
             
              
-            printfn "asdfasdf %A" playFirstMove                
+            printfn "PlayFirstMove %A" playFirstMove                
             
             //val ms: (coord * (uint32 * (char * int))) list                                                     
-            let constructMove (chars:list<char>) =
-               let lenght = List.length chars
-                                                         
-               let firstBrik = ((0,0):coord),((Map.find (List.item 0 chars) charToIntMapAlphabet), Set.minElement (Map.find (Map.find (List.item 0 chars) charToIntMapAlphabet) pieces))
-               let secondBrik = ((1,0):coord),((Map.find (List.item 1 chars) charToIntMapAlphabet), Set.minElement(Map.find (Map.find (List.item 1 chars) charToIntMapAlphabet) pieces))
-               let thirdBrik = ((2,0):coord),((Map.find (List.item 2 chars) charToIntMapAlphabet), Set.minElement(Map.find (Map.find (List.item 2 chars) charToIntMapAlphabet) pieces))
-               let move = [firstBrik;secondBrik;thirdBrik]
-               move
+            let rec constructMove (chars:list<char>) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =               
                
+               let aux nyListe stadie =
+                   let tile = (((snd index),0):coord),((Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet), Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet) pieces))               
+                   match stadie with
+                   | (i,n) -> constructMove chars (tile::nyListe) (i-1,n-1)
                
-            let move = constructMove playFirstMove
-            printfn "KÆMPE TEST På Move %A" move 
+               match index with
+               | (0,_) -> move
+               | (i,n) -> aux move (i,n)                 
+                                                                        
+               
+            let move = constructMove playFirstMove [] ((List.length playFirstMove),(List.length playFirstMove)-1)
+            printfn "KÆMPE TEST På Move %A"  move
                
           
 
