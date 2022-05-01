@@ -151,8 +151,10 @@ module Scrabble =
             //val ms: (coord * (uint32 * (char * int))) list                                                     
             let rec constructMove (chars:list<char>) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =               
                
+               //Todo:: Den blanke brik er en edge case. Der kan man ikke bare bruge set.Minelement, da der er mange elementer.             
                let aux nyListe stadie =
-                   let tile = (((snd index),0):coord),((Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet), Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet) pieces))               
+                   let tile = (((snd index),0):coord),((Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet),
+                                                       Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet) pieces))               
                    match stadie with
                    | (i,n) -> constructMove chars (tile::nyListe) (i-1,n-1)
                
