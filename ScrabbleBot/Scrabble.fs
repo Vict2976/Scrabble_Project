@@ -119,22 +119,21 @@ module Scrabble =
             
             //Mangler: Sammenligne currentword med foundword og så retunere største ord 
             
+            let removeElementFromHand (hand:list<char>) (char: char) =
+                List.fold(fun newList current -> if current=char then newList else current::newList) [] hand
              
             
             let rec findWord (hand: list<char>) (D : Dictionary.Dict )(currentWord : list<char>) (FoundWord : list<char>) =
                 let aux (i, acc) e =
                   match Dictionary.step e D with
-                  | Some (true, Drest) -> (i+1, findWord (List.removeAt i hand) Drest (e::currentWord) (e::currentWord))
-                  | Some (false, Drest) -> (i+1, findWord (List.removeAt i hand) Drest (e::currentWord) acc)
+                  | Some (true, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest (e::currentWord) (e::currentWord))
+                  | Some (false, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest (e::currentWord) acc)
                   | None -> (i, acc)
                 match hand with
                 | [] -> FoundWord
                 | hand1 -> List.fold aux (0, FoundWord) hand1 |> snd 
                 
-                    
-                
-            //let test = findWord ['X';'H';'E';'L';'L';'O'] st.dict [] []
-            
+                                            
             //start of the game. If the map is empty findword from hand and play it.
             let charToIntMapAlphabet = Map.add 'A' 1u Map.empty |> Map.add 'B' 2u |> Map.add 'C' 3u |> Map.add 'D' 4u |> Map.add 'E' 5u |> Map.add 'F' 6u
                                        |> Map.add 'G' 7u|> Map.add 'H' 8u |> Map.add 'I' 9u |> Map.add 'J' 10u |> Map.add 'K' 11u |> Map.add 'L' 12u
