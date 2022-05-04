@@ -92,9 +92,13 @@ module Scrabble =
             let findTiles pieces hand = MultiSet.fold (fun acc id amount-> addAmount (Map.find id pieces) acc amount) [] hand
             let newHand  = findTiles pieces st.hand
             
-            let chars = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) @ acc) [] newHand
+            let chars : list<list<char>> = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) :: acc) [] newHand
+            
+            let chars1  = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) @ acc) [] newHand
+            
             let pointValues = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
             
+            printfn "CHARS IN HAND %A" chars   
             
             let rec add tileSet list (amount:uint) =
                 match amount with
@@ -119,19 +123,26 @@ module Scrabble =
             
             //Mangler: Sammenligne currentword med foundword og så retunere største ord 
             
-            let removeElementFromHand (hand:list<char>) (char: char) =
-                List.fold(fun newList current -> if current=char then newList else current::newList) [] hand
-             
-            
-            let rec findWord (hand: list<char>) (D : Dictionary.Dict )(currentWord : list<char>) (FoundWord : list<char>) =
-                let aux (i, acc) e =
-                  match Dictionary.step e D with
-                  | Some (true, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest (e::currentWord) (e::currentWord))
-                  | Some (false, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest (e::currentWord) acc)
-                  | None -> (i, acc)
+            let removeElementFromHand (hand: char list list) (char: char list) =
+                List.fold(fun (b, newList) current -> if current=char && not b then (true, newList) else (b,current::newList)) (false, []) hand |> snd
+                
+                
+            //joker liste (mange elementer) - dvs. hvis begge lister < 
+            //normal char list (1 element)
+               
+               
+            let rec findWord (hand: char list list) (D : Dictionary.Dict )(currentWord : list<char>) (FoundWord : list<char>)=
+                let aux (i, acc) (e : char list) =
+                  List.fold(fun state element ->  
+                      match Dictionary.step element D with
+                      | Some (true, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest (element::currentWord) (element::currentWord))
+                      | Some (false, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest (element::currentWord) (snd state))
+                      | None -> state) (i,acc) e
                 match hand with
                 | [] -> FoundWord
-                | hand1 -> List.fold aux (0, FoundWord) hand1 |> snd 
+                | hand1 -> List.fold aux (0, FoundWord) hand1 |> snd
+                
+                //Gå ned a dictipnary med det samme, og smid det dictionary med. 
                 
                                             
             //start of the game. If the map is empty findword from hand and play it.
