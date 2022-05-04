@@ -131,12 +131,13 @@ module Scrabble =
             //normal char list (1 element)
                
                
-            let rec findWord (hand: char list list) (D : Dictionary.Dict )(currentWord : list<char>) (FoundWord : list<char>)=
+            let rec findWord (hand: char list list) (D : Dictionary.Dict )(currentWord : (bool * char) list) (FoundWord : (bool * char) list) : (bool * char) list=
                 let aux (i, acc) (e : char list) =
+                  let boolFlag = List.length e > 1
                   List.fold(fun state element ->  
                       match Dictionary.step element D with
-                      | Some (true, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest (element::currentWord) (element::currentWord))
-                      | Some (false, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest (element::currentWord) (snd state))
+                      | Some (true, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) ((boolFlag, element)::currentWord))
+                      | Some (false, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) (snd state))
                       | None -> state) (i,acc) e
                 match hand with
                 | [] -> FoundWord
@@ -159,14 +160,26 @@ module Scrabble =
             printfn "PlayFirstMove %A" playFirstMove                
             
             //val ms: (coord * (uint32 * (char * int))) list                                                     
-            let rec constructMove (chars:list<char>) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =               
+            let rec constructMove (chars: (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =               
                
                //Todo:: Den blanke brik er en edge case. Der kan man ikke bare bruge set.Minelement, da der er mange elementer.             
                let aux nyListe stadie =
-                   let tile = (((snd index),0):coord),((Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet),
-                                                       Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet) pieces))               
+                   
+                   let a = List.item ((fst index)-1) chars |> fst
+                   
+                   let lol = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars |> snd) charToIntMapAlphabet) pieces)
+                   
+                   let tileNormal = (((snd index),0):coord),((Map.find (List.item ((fst index)-1) chars |> snd) charToIntMapAlphabet),
+                                                       Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars |> snd) charToIntMapAlphabet) pieces))
+                   let jokertile = ((snd index,0):coord), (0u, lol)
+                   
+                   let finalTile = if not a then tileNormal else jokertile
+                                     
+                   //let test1 = Set.minElement (Map.find 0u pieces)
+                   //let tile = if (false, ) then (((snd index),0):coord),((Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet),
+                    //                                   Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet) pieces)) else      
                    match stadie with
-                   | (i,n) -> constructMove chars (tile::nyListe) (i-1,n-1)
+                   | (i,n) -> constructMove chars (finalTile::nyListe) (i-1,n-1)
                
                match index with
                | (0,_) -> move
