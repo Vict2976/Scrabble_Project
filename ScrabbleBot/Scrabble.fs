@@ -109,8 +109,8 @@ module Scrabble =
             
             
             
-  //i findword, bogstaver vi har tilbage på hånd, der hvor vi er nået til i dict,
-  //char vi har ind til videre, det ord vi har fundet so far.
+              //i findword, bogstaver vi har tilbage på hånd, der hvor vi er nået til i dict,
+              //char vi har ind til videre, det ord vi har fundet so far.
             
             //CurrentWord 'H'E'Z'
             //FoundWord H'E
@@ -165,21 +165,19 @@ module Scrabble =
                //Todo:: Den blanke brik er en edge case. Der kan man ikke bare bruge set.Minelement, da der er mange elementer.             
                let aux nyListe stadie =
                    
-                   let a = List.item ((fst index)-1) chars |> fst
-                   
-                   let lol = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars |> snd) charToIntMapAlphabet) pieces)
+                   let isBlankTile = List.item ((fst index)-1) chars |> fst
+
+                   let charAndPointValue = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars |> snd) charToIntMapAlphabet) pieces)
                    
                    let tileNormal = (((snd index),0):coord),((Map.find (List.item ((fst index)-1) chars |> snd) charToIntMapAlphabet),
                                                        Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars |> snd) charToIntMapAlphabet) pieces))
-                   let jokertile = ((snd index,0):coord), (0u, lol)
                    
-                   let finalTile = if not a then tileNormal else jokertile
-                                     
-                   //let test1 = Set.minElement (Map.find 0u pieces)
-                   //let tile = if (false, ) then (((snd index),0):coord),((Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet),
-                    //                                   Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet) pieces)) else      
+                   let tileJoker = ((snd index,0):coord), (0u, (fst charAndPointValue, 0)) //Jokertile giver altid 0 point
+                   
+                   let tileFinal = if not isBlankTile then tileNormal else tileJoker
+          
                    match stadie with
-                   | (i,n) -> constructMove chars (finalTile::nyListe) (i-1,n-1)
+                   | (i,n) -> constructMove chars (tileFinal::nyListe) (i-1,n-1)
                
                match index with
                | (0,_) -> move
@@ -188,8 +186,6 @@ module Scrabble =
                
             let move = constructMove playFirstMove [] ((List.length playFirstMove),(List.length playFirstMove)-1)
             printfn "KÆMPE TEST På Move %A"  move
-               
-          
 
             //fold hen over hånden
             //
