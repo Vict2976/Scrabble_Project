@@ -92,13 +92,13 @@ module Scrabble =
             let findTiles pieces hand = MultiSet.fold (fun acc id amount-> addAmount (Map.find id pieces) acc amount) [] hand
             let newHand  = findTiles pieces st.hand
             
-            let chars : list<list<char>> = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) :: acc) [] newHand
+            let charsInHand : list<list<char>> = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) :: acc) [] newHand
             
             let chars1  = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) @ acc) [] newHand
             
             let pointValues = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
             
-            printfn "CHARS IN HAND %A" chars   
+            printfn "CHARS IN HAND %A" charsInHand   
             
             let rec add tileSet list (amount:uint) =
                 match amount with
@@ -131,19 +131,34 @@ module Scrabble =
             //normal char list (1 element)
                
                
-            let rec findWord (hand: char list list) (D : Dictionary.Dict )(currentWord : (bool * char) list) (FoundWord : (bool * char) list) : (bool * char) list=
+            let rec findFirstWord (hand: char list list) (D : Dictionary.Dict )(currentWord : (bool * char) list) (FoundWord : (bool * char) list) : (bool * char) list=
                 let aux (i, acc) (e : char list) =
                   let boolFlag = List.length e > 1
                   List.fold(fun state element ->  
                       match Dictionary.step element D with
-                      | Some (true, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) ((boolFlag, element)::currentWord))
-                      | Some (false, Drest) -> (i+1, findWord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) (snd state))
+                      | Some (true, Drest) -> (i+1, findFirstWord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) ((boolFlag, element)::currentWord))
+                      | Some (false, Drest) -> (i+1, findFirstWord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) (snd state))
                       | None -> state) (i,acc) e
                 match hand with
                 | [] -> FoundWord
                 | hand1 -> List.fold aux (0, FoundWord) hand1 |> snd
                 
-                //Gå ned a dictipnary med det samme, og smid det dictionary med. 
+                
+            // TO DO :::: Sørg for at den ikke tager første bogstav med, men overvej at undersøge Dictionary step med det først bogstav
+            //TODO Vi sætter første bogstav fra boardet forrest i listen på currentWord. Men skal vi også opdatere Dictionary til start?
+            let rec findWords (directionCoord : coord) (hand: char list list) (D : Dictionary.Dict ) (currentWord : (bool * char) list) (FoundWord : (bool * char) list) : coord * (bool * char) list =
+                let aux (i, acc) (e : char list) =
+                  let boolFlag = List.length e > 1
+                  List.fold(fun state element ->  
+                      match Dictionary.step element D with
+                      | Some (true, Drest) -> (i+1, findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) ((boolFlag, element)::currentWord))
+                      | Some (false, Drest) -> (i+1, findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) (snd (snd state)))
+                      | None -> state) (i,acc) e
+                match hand with
+                | [] -> (directionCoord, FoundWord)
+                | hand1 -> List.fold aux (0, (directionCoord, FoundWord)) hand1 |> snd  
+                            
+                
                 
                                             
             //start of the game. If the map is empty findword from hand and play it.
@@ -152,40 +167,67 @@ module Scrabble =
                                        |> Map.add 'M' 13u |> Map.add 'N' 14u |> Map.add 'O' 15u |> Map.add 'P' 16u |> Map.add 'Q' 17u |> Map.add 'R' 18u
                                        |> Map.add 'S' 19u |> Map.add 'T' 20u |> Map.add 'U' 21u |> Map.add 'V' 22u |> Map.add 'W' 23u |> Map.add 'X' 24u
                                        |> Map.add 'Y' 25u |> Map.add 'Z' 26u
+                                       
+            let rec checkAroundTile (startCoord : coord) (newCoord : coord) (index : int) =
+                let yDown = ((fst newCoord), (snd newCoord + 1))
+                let yUp = ((fst newCoord), (snd newCoord - 1))
+                let xLeft = ((fst newCoord - 1), (snd newCoord))
+                let xRight = ((fst newCoord + 1), (snd newCoord))
+                let listOfSquaresAround = [yDown; yUp; xLeft; xRight]
+                match Map.tryFind newCoord st.boardTiles with
+                | Some v -> checkAroundTile startCoord listOfSquaresAround.[index] +1
+                | None -> findWords newCoord charsInHand st.dict [false, match Map.tryFind startCoord st.boardTiles with
+                                                                  | Some v -> v
+                                                                  | None -> ' '] []
+                
             
-            let playFirstMove =
-                if st.boardTiles.IsEmpty then List.rev (findWord chars st.dict [] []) else []
+            let playFirstMove = List.rev (findFirstWord charsInHand st.dict [] [])
+            let playRestOfMoves = checkAroundTile (0,0) (0,0) 0                
             
-             
+            
             printfn "PlayFirstMove %A" playFirstMove                
             
             //val ms: (coord * (uint32 * (char * int))) list                                                     
-            let rec constructMove (chars: (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =               
-               
-               //Todo:: Den blanke brik er en edge case. Der kan man ikke bare bruge set.Minelement, da der er mange elementer.             
+            let rec constructMove (charsInHand: (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =               
                let aux nyListe stadie =
-                   
-                   let isBlankTile = List.item ((fst index)-1) chars |> fst
-
-                   let charAndPointValue = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars |> snd) charToIntMapAlphabet) pieces)
-                   
-                   let tileNormal = (((snd index),0):coord),((Map.find (List.item ((fst index)-1) chars |> snd) charToIntMapAlphabet),
-                                                       Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars |> snd) charToIntMapAlphabet) pieces))
-                   
+                   let isBlankTile = List.item ((fst index)-1) charsInHand |> fst
+                   let charAndPointValue = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) charsInHand |> snd) charToIntMapAlphabet) pieces)   
+                   let tileNormal = (((snd index),0):coord),((Map.find (List.item ((fst index)-1) charsInHand |> snd) charToIntMapAlphabet),
+                                                       Set.minElement (Map.find (Map.find (List.item ((fst index)-1) charsInHand |> snd) charToIntMapAlphabet) pieces))  
                    let tileJoker = ((snd index,0):coord), (0u, (fst charAndPointValue, 0)) //Jokertile giver altid 0 point
-                   
                    let tileFinal = if not isBlankTile then tileNormal else tileJoker
-          
                    match stadie with
-                   | (i,n) -> constructMove chars (tileFinal::nyListe) (i-1,n-1)
-               
+                   | (i,n) -> constructMove charsInHand (tileFinal::nyListe) (i-1,n-1)
                match index with
                | (0,_) -> move
-               | (i,n) -> aux move (i,n)                 
-                                                                        
+               | (i,n) -> aux move (i,n)
                
-            let move = constructMove playFirstMove [] ((List.length playFirstMove),(List.length playFirstMove)-1)
+               
+            let rec constructNextMove (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =
+               let direction = fst charsInHand
+               let CoordIncrementet = ((fst(fst charsInHand)), (snd (fst charsInHand)+1): coord ) , (snd charsInHand)  
+               let aux nyListe stadie =
+                   let isBlankTile = List.item ((fst index)-1) (snd charsInHand) |> fst
+                   let charAndPointValue = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) (snd charsInHand) |> snd) charToIntMapAlphabet) pieces)   
+                   let tileNormal = ((direction):coord),((Map.find (List.item ((fst index)-1) (snd charsInHand) |> snd) charToIntMapAlphabet),
+                                                       Set.minElement (Map.find (Map.find (List.item ((fst index)-1) (snd charsInHand) |> snd) charToIntMapAlphabet) pieces))  
+                   let tileJoker = ((direction):coord), (0u, (fst charAndPointValue, 0)) //Jokertile giver altid 0 point
+                   let tileFinal = if not isBlankTile then tileNormal else tileJoker
+                   match stadie with
+                   
+                   | (i,n) -> constructNextMove CoordIncrementet (tileFinal::nyListe) (i-1,n-1)
+               match index with
+               | (0,_) -> move
+               | (i,n) -> aux move (i,n)
+            
+                                                                        
+            let move = if st.boardTiles.IsEmpty then constructMove playFirstMove [] ((List.length playFirstMove),(List.length playFirstMove)-1)
+                        else constructNextMove playRestOfMoves [] ((List.length (snd playRestOfMoves)),(List.length (snd playRestOfMoves))-1)
+                        
+                        
             printfn "KÆMPE TEST På Move %A"  move
+            
+
 
             //fold hen over hånden
             //
@@ -234,6 +276,7 @@ module Scrabble =
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
+            
 
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
