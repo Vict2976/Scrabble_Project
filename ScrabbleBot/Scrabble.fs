@@ -98,7 +98,7 @@ module Scrabble =
             
             let pointValues = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
             
-            printfn "CHARS IN HAND %A" charsInHand   
+            printfn "CHARS IN HAND %A" (List.length charsInHand)   
             
             let rec add tileSet list (amount:uint) =
                 match amount with
@@ -167,7 +167,9 @@ module Scrabble =
                                        |> Map.add 'M' 13u |> Map.add 'N' 14u |> Map.add 'O' 15u |> Map.add 'P' 16u |> Map.add 'Q' 17u |> Map.add 'R' 18u
                                        |> Map.add 'S' 19u |> Map.add 'T' 20u |> Map.add 'U' 21u |> Map.add 'V' 22u |> Map.add 'W' 23u |> Map.add 'X' 24u
                                        |> Map.add 'Y' 25u |> Map.add 'Z' 26u
-                                       
+            
+            
+            //Ideen er at have en startCoord. Hvor der ligger et bogstac. ListofSquares er dem der ligger rundt om startcoord.                            
             let rec checkAroundTile (startCoord : coord) (newCoord : coord) (index : int) =
                 let yDown = ((fst newCoord), (snd newCoord + 1))
                 let yUp = ((fst newCoord), (snd newCoord - 1))
@@ -175,17 +177,13 @@ module Scrabble =
                 let xRight = ((fst newCoord + 1), (snd newCoord))
                 let listOfSquaresAround = [yDown; yUp; xLeft; xRight]
                 match Map.tryFind newCoord st.boardTiles with
-                | Some v -> checkAroundTile startCoord listOfSquaresAround.[index] +1
+                | Some v -> checkAroundTile startCoord listOfSquaresAround.[index] (index+1)
                 | None -> findWords newCoord charsInHand st.dict [false, match Map.tryFind startCoord st.boardTiles with
-                                                                  | Some v -> v
-                                                                  | None -> ' '] []
-                
+                                                                     | Some v -> v
+                                                                     | None -> ' '] []
+                    
             
-            let playFirstMove = List.rev (findFirstWord charsInHand st.dict [] [])
-            let playRestOfMoves = checkAroundTile (0,0) (0,0) 0                
-            
-            
-            printfn "PlayFirstMove %A" playFirstMove                
+                         
             
             //val ms: (coord * (uint32 * (char * int))) list                                                     
             let rec constructMove (charsInHand: (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =               
@@ -219,13 +217,18 @@ module Scrabble =
                match index with
                | (0,_) -> move
                | (i,n) -> aux move (i,n)
-            
+               
+            let playFirstMove = if st.boardTiles.IsEmpty then List.rev (findFirstWord charsInHand st.dict [] []) else []
+            let playRestOfMoves = if st.boardTiles.IsEmpty then ((-1,-1),[]) else checkAroundTile (0,0) (0,0) 0   
                                                                         
             let move = if st.boardTiles.IsEmpty then constructMove playFirstMove [] ((List.length playFirstMove),(List.length playFirstMove)-1)
                         else constructNextMove playRestOfMoves [] ((List.length (snd playRestOfMoves)),(List.length (snd playRestOfMoves))-1)
+              
                         
-                        
-            printfn "KÆMPE TEST På Move %A"  move
+            //printfn "PlayfirstMove %A"  playFirstMove
+            printfn ":::PlayRestMove %A"  playRestOfMoves
+            //printfn "::::MOVED %A" move
+            
             
 
 
