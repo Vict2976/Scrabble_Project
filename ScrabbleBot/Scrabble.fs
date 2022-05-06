@@ -191,7 +191,7 @@ module Scrabble =
                          
             
             //val ms: (coord * (uint32 * (char * int))) list                                                     
-            let rec constructMove (charsInHand: (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =               
+            let rec constructMove (charsInHand: (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =
                let aux nyListe stadie =
                    let isBlankTile = List.item ((fst index)-1) charsInHand |> fst
                    let charAndPointValue = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) charsInHand |> snd) charToIntMapAlphabet) pieces)   
@@ -207,14 +207,19 @@ module Scrabble =
                
                
             let rec constructNextMove (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =
-               //let tailList = (snd charsInHand).Tail
+               
+               //let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst                                     
+
+               //let ListWithoutCharsIsAlreadyInWord = List.tail (snd charsInHand)
+
                let direction = fst charsInHand
                let CoordIncrementet = ((fst(fst charsInHand)), (snd (fst charsInHand)+1): coord ) , (snd charsInHand)  
                let aux nyListe stadie =
                    let isBlankTile = List.item ((fst index)-1) (snd charsInHand) |> fst
-                   let charAndPointValue = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) (snd charsInHand) |> snd) charToIntMapAlphabet) pieces)   
-                   let tileNormal = ((direction):coord),((Map.find (List.item ((fst index)-1) (snd charsInHand) |> snd) charToIntMapAlphabet),
-                                                       Set.minElement (Map.find (Map.find (List.item ((fst index)-1) (snd charsInHand) |> snd) charToIntMapAlphabet) pieces))  
+                   
+                   let charAndPointValue = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) (snd charsInHand) |> snd) charToIntMapAlphabet) pieces)
+                   
+                   let tileNormal = ((direction):coord),((Map.find (List.item ((fst index)-1) (snd charsInHand) |> snd) charToIntMapAlphabet),charAndPointValue)  
                    let tileJoker = ((direction):coord), (0u, (fst charAndPointValue, 0)) //Jokertile giver altid 0 point
                    let tileFinal = if not isBlankTile then tileNormal else tileJoker
                    match stadie with
@@ -230,11 +235,11 @@ module Scrabble =
             let playRestOfMoves = if st.boardTiles.IsEmpty then ((-1,-1),[])  else checkAroundTile (0,0) (0,0) 0    
                                                                         
             let move = if st.boardTiles.IsEmpty then constructMove playFirstMove [] ((List.length playFirstMove),(List.length playFirstMove)-1)
-                        else List.rev (constructNextMove playRestOfMoves [] ((List.length (snd playRestOfMoves)),(List.length (snd playRestOfMoves))-1))
+                        else List.rev (constructNextMove (playRestOfMoves ) [] ((List.length (snd playRestOfMoves)),(List.length (snd playRestOfMoves))-1))
               
                         
             //printfn "PlayfirstMove %A"  playFirstMove
-            printfn ":::MOVED %A"  move
+            //printfn ":::MOVED %A"  move
             //printfn "::::MOVED %A" move
             
             
