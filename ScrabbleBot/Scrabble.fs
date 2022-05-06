@@ -147,16 +147,20 @@ module Scrabble =
             // TO DO :::: Sørg for at den ikke tager første bogstav med, men overvej at undersøge Dictionary step med det først bogstav
             //TODO Vi sætter første bogstav fra boardet forrest i listen på currentWord. Men skal vi også opdatere Dictionary til start?
             let rec findWords (directionCoord : coord) (hand: char list list) (D : Dictionary.Dict ) (currentWord : (bool * char) list) (FoundWord : (bool * char) list) : coord * (bool * char) list =
-                let aux (i, acc) (e : char list) =
+                let aux (acc) (e : char list) =
                   let boolFlag = List.length e > 1
+                  
                   List.fold(fun state element ->  
                       match Dictionary.step element D with
-                      | Some (true, Drest) -> (i+1, findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) ((boolFlag, element)::currentWord))
-                      | Some (false, Drest) -> (i+1, findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) (snd (snd state)))
-                      | None -> state) (i,acc) e
+                      | Some (true, Drest) -> (findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) ((boolFlag, element)::currentWord))
+                      | Some (false, Drest) -> (findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) (snd state))
+                      | None -> state) (acc) e
+                
+                //Hvis der ligger noget stepper vi nedad i dictionary og kalder findwor dmed næste koordinat. Og hvis dictionary giver noget tilbage. 
+               
                 match hand with
                 | [] -> (directionCoord, FoundWord)
-                | hand1 -> List.fold aux (0, (directionCoord, FoundWord)) hand1 |> snd  
+                | hand1 -> List.fold aux (directionCoord, FoundWord) hand1  
                             
                 
                 
@@ -178,9 +182,10 @@ module Scrabble =
                 let listOfSquaresAround = [yDown; yUp; xLeft; xRight]
                 match Map.tryFind newCoord st.boardTiles with
                 | Some v -> checkAroundTile startCoord listOfSquaresAround.[index] (index+1)
-                | None -> findWords newCoord charsInHand st.dict [false, match Map.tryFind startCoord st.boardTiles with
-                                                                     | Some v -> v
-                                                                     | None -> ' '] []
+                | None -> match Dictionary.step (Map.find startCoord st.boardTiles) st.dict with
+                            |Some (v, dic) -> findWords newCoord charsInHand dic [(false, Map.find startCoord st.boardTiles)] []
+                            | None -> ((-1,-1), [])
+                
                     
             
                          
@@ -202,6 +207,7 @@ module Scrabble =
                
                
             let rec constructNextMove (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =
+               //let tailList = (snd charsInHand).Tail
                let direction = fst charsInHand
                let CoordIncrementet = ((fst(fst charsInHand)), (snd (fst charsInHand)+1): coord ) , (snd charsInHand)  
                let aux nyListe stadie =
@@ -218,15 +224,17 @@ module Scrabble =
                | (0,_) -> move
                | (i,n) -> aux move (i,n)
                
+               
+               
             let playFirstMove = if st.boardTiles.IsEmpty then List.rev (findFirstWord charsInHand st.dict [] []) else []
-            let playRestOfMoves = if st.boardTiles.IsEmpty then ((-1,-1),[]) else checkAroundTile (0,0) (0,0) 0   
+            let playRestOfMoves = if st.boardTiles.IsEmpty then ((-1,-1),[])  else checkAroundTile (0,0) (0,0) 0    
                                                                         
             let move = if st.boardTiles.IsEmpty then constructMove playFirstMove [] ((List.length playFirstMove),(List.length playFirstMove)-1)
-                        else constructNextMove playRestOfMoves [] ((List.length (snd playRestOfMoves)),(List.length (snd playRestOfMoves))-1)
+                        else List.rev (constructNextMove playRestOfMoves [] ((List.length (snd playRestOfMoves)),(List.length (snd playRestOfMoves))-1))
               
                         
             //printfn "PlayfirstMove %A"  playFirstMove
-            printfn ":::PlayRestMove %A"  playRestOfMoves
+            printfn ":::MOVED %A"  move
             //printfn "::::MOVED %A" move
             
             
