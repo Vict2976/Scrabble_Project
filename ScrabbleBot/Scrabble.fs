@@ -223,35 +223,41 @@ module Scrabble =
                 match List.tryItem 0 startCoord with
                 | Some v -> if (snd compareCoord) > snd v then "Downward" else " "
                 | None -> " "
+                
+            (*let takeOutElementFromList (lst:list<coord>) =
+                match *)
                
             let rec constructNextMove (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =
-               
-               //let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst                                     
 
-               //let ListWithoutCharsIsAlreadyInWord = List.tail (snd charsInHand)
-               
                let reversCharsInHand = (fst charsInHand, List.rev (snd charsInHand))
+               let removeBools = List.fold (fun acc element -> (snd element)::acc) [] (snd reversCharsInHand)
                               
                let findDirectionCoord = (findDirectionForStartValue (fst charsInHand) (List.item 0 (snd reversCharsInHand)))
+               
+               //let getFirstElementFromFindDirectionsCoord = takeOutElementFromList findDirectionCoord
                 
                let directionString = setDirection findDirectionCoord (fst charsInHand)
-                
-               let direction = fst charsInHand
-               let CoordIncrementet = ((fst(fst charsInHand)), (snd (fst charsInHand)+1): coord ) , (snd charsInHand)  
-               let aux nyListe stadie =
-                   let isBlankTile = List.item ((fst index)-1) (snd charsInHand) |> fst                   
-                   let charAndPointValue = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) (snd charsInHand) |> snd) charToIntMapAlphabet) pieces) 
-                   let tileNormal = ((direction):coord),((Map.find (List.item ((fst index)-1) (snd charsInHand) |> snd) charToIntMapAlphabet),charAndPointValue)  
-                   let tileJoker = ((direction):coord), (0u, (fst charAndPointValue, 0)) //Jokertile giver altid 0 point
-                   let tileFinal = if not isBlankTile then tileNormal else tileJoker
-                   match stadie with
+     
+               let findElementsFromListWhichAlreadyOnBoard =
+                   List.fold (fun acc element ->  match Map.tryFind element st.boardTiles with 
+                   | Some v -> v::acc
+                   | None -> acc) [] findDirectionCoord
+               
+               let helperFunc el = List.fold(fun acc element -> if element = el then acc+1 else acc) 0 findElementsFromListWhichAlreadyOnBoard
                    
-                   | (i,n) -> constructNextMove CoordIncrementet (tileFinal::nyListe) (i-1,n-1)
-               match index with
-               | (0,_) -> move
-               | (i,n) -> aux move (i,n)
+               let UpdatedHand = List.fold (fun acc element -> if (helperFunc element)>0 then acc else element::acc ) [] removeBools
+               
+                
                
                
+               let a = findElementsFromListWhichAlreadyOnBoard
+               let c = ""
+                  
+               let b = []
+               b
+               
+             
+ 
                
             let playFirstMove = if st.boardTiles.IsEmpty then List.rev (findFirstWord charsInHand st.dict [] []) else []
             let playRestOfMoves = if st.boardTiles.IsEmpty then ((-1,-1),[])  else checkAroundTile (0,0) (0,0) 0    
