@@ -221,16 +221,34 @@ module Scrabble =
             
             let setDirection (startCoord: list<coord>) (compareCoord: coord) =
                 match List.tryItem 0 startCoord with
-                | Some v -> if (snd compareCoord) > snd v then "Downward" else " "
+                | Some v -> if (snd compareCoord) > snd v then "Down" else " "
                 | None -> " "
                 
             (*let takeOutElementFromList (lst:list<coord>) =
                 match *)
-               
+            
+            
+            let rec constructMoveDownWards (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (startingCoord: coord) (index: int) (direction: string)=
+                let isBlankTile = List.item index (snd charsInHand) |> fst
+                let charPointValue = Set.minElement (Map.find (Map.find (List.item index (snd charsInHand) |> snd) charToIntMapAlphabet) pieces)
+                let uintValue = (Map.find (List.item index (snd charsInHand) |> snd) charToIntMapAlphabet)
+                let tileNormal = (startingCoord,(uintValue,(charPointValue)))
+                
+                let tileJoker = (startingCoord), (0u, (fst charPointValue, 0)) //Jokertile giver altid 0 point
+                let tileFinal = if not isBlankTile then tileNormal else tileJoker
+                
+                match index with
+                | v -> if v = 0 then move@[tileFinal] else constructMoveDownWards charsInHand (move@[tileFinal]) (fst startingCoord, snd startingCoord+1) (index-1) direction
+            
+            let constructMoveHelperFunc (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (startingCoord: coord) (index: int) (direction: string)=
+                
+                match direction with
+                | "Down" -> constructMoveDownWards charsInHand move startingCoord index direction
+                | _ -> []
+      
             let rec constructNextMove (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =
 
                let reversCharsInHand = (fst charsInHand, List.rev (snd charsInHand))
-               let removeBools = List.fold (fun acc element -> (snd element)::acc) [] (snd reversCharsInHand)
                               
                let findDirectionCoord = (findDirectionForStartValue (fst charsInHand) (List.item 0 (snd reversCharsInHand)))
                
@@ -245,25 +263,20 @@ module Scrabble =
                
                let helperFunc el = List.fold(fun acc element -> if element = el then acc+1 else acc) 0 findElementsFromListWhichAlreadyOnBoard
                    
-               let UpdatedHand = List.fold (fun acc element -> if (helperFunc element)>0 then acc else element::acc ) [] removeBools
+               let UpdatedHand = (fst charsInHand,List.fold (fun acc element -> if (helperFunc (snd element))>0 then acc else element::acc ) [] (snd reversCharsInHand))
                
-                
-               
-               
-               let a = findElementsFromListWhichAlreadyOnBoard
-               let c = ""
-                  
-               let b = []
-               b
+               let constructMove =constructMoveHelperFunc UpdatedHand [] (fst charsInHand) (List.length (snd UpdatedHand)-1 ) directionString
+               constructMove
                
              
- 
                
+               
+         
             let playFirstMove = if st.boardTiles.IsEmpty then List.rev (findFirstWord charsInHand st.dict [] []) else []
             let playRestOfMoves = if st.boardTiles.IsEmpty then ((-1,-1),[])  else checkAroundTile (0,0) (0,0) 0    
                                                                         
             let move = if st.boardTiles.IsEmpty then constructMove playFirstMove [] ((List.length playFirstMove),(List.length playFirstMove)-1)
-                        else List.rev (constructNextMove (playRestOfMoves ) [] ((List.length (snd playRestOfMoves)),(List.length (snd playRestOfMoves))-1))
+                        else (constructNextMove (playRestOfMoves ) [] ((List.length (snd playRestOfMoves)),(List.length (snd playRestOfMoves))-1))
               
                         
             //printfn "PlayfirstMove %A"  playFirstMove
@@ -283,31 +296,8 @@ module Scrabble =
             
            // ) [] st.hand
             
-            let test4 =
-                Dictionary.step 'H' st.dict
-                |> Option.bind (fun (b, dict') ->
-                    Dictionary.step 'E' dict' |> Option.bind (fun (b, dict') ->
-                        Dictionary.step 'Y' dict'))
                                 
-            (*
-            let test1 =
-                Dictionary.step 'H' st.dict
-                |> Option.bind (fun (b, dict') ->
-                    Dictionary.step 'E' dict' |> Option.bind (fun (b, dict') ->
-                        Dictionary.step 'Y' dict'))
             
-            let test2 =
-                Dictionary.step 'H' st.dict
-                |> Option.bind (fun (b, dict') ->
-                    Dictionary.step 'E' dict')
-                
-            let test3 = Dictionary.step 'H' st.dict
-             
-            printf "TEST H,E,Y,X: %A" test4
-            printf "TEST H,E,Y : %A" test1
-            printf "TEST H,E : %A" test2
-            printf "TEST H: %A" test3
-            *)
 
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
