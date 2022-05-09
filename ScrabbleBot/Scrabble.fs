@@ -127,14 +127,18 @@ module Scrabble =
                 | [] -> FoundWord
                 | hand1 -> List.fold aux (0, FoundWord) hand1 |> snd
                 
-                
+                //Lav hjælpemetode der tjekker om current FoundWord er større end foundWord. Kald recursivt med det længste.
+            let helpFindLongestWord (FoundWord : (bool * char) list) (currentWord : (bool * char) list)=
+                if List.length FoundWord > List.length currentWord then FoundWord else currentWord
+            
+            
             let rec findWords (directionCoord : coord) (hand: char list list) (D : Dictionary.Dict ) (currentWord : (bool * char) list) (FoundWord : (bool * char) list) : coord * (bool * char) list =
                 let aux (acc) (e : char list) =
                   let boolFlag = List.length e > 1
                   
                   List.fold(fun state element ->  
                       match Dictionary.step element D with
-                      | Some (true, Drest) -> (findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) ((boolFlag, element)::currentWord))
+                      | Some (true, Drest) -> (findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord)  (helpFindLongestWord FoundWord ((boolFlag, element)::currentWord)))
                       | Some (false, Drest) -> (findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) (snd state))
                       | None -> state) (acc) e
                 
@@ -243,10 +247,11 @@ module Scrabble =
                
             let selectLastInsertedKey = st.lastPlayedTile
 
-            let playRestOfMoves = findWordFromGivenTile st.lastPlayedTile  //spil på næstSidstPlacede
-            
+            let playRestOfMoves1 = findWordFromGivenTile st.lastPlayedTile  //spil på næstSidstPlacede
+            let playRestOfMoves2 = findWordFromGivenTile st.secondLastPlayedTile
+
             //check om der er fundet et ord ellers prøv med andet sidste placerede
-            let checkOrFindWithSecondLasts =  if List.isEmpty (snd playRestOfMoves) then findWordFromGivenTile st.secondLastPlayedTile else playRestOfMoves
+            let checkOrFindWithSecondLasts =  if List.isEmpty (snd playRestOfMoves1) then playRestOfMoves2 else playRestOfMoves1
                                                                        
             let move = (constructNextMove (checkOrFindWithSecondLasts)) 
                         
@@ -269,7 +274,8 @@ module Scrabble =
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 //Updating hand
                 let lst = List.map (fun (_, (u, _)) -> u) ms
-                let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst                                     
+                let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst
+                
                 let lst1 = List.map (fun (u, _) -> u) newPieces
                 let newSet = List.fold(fun acc x -> MultiSet.addSingle x acc) deletedSet lst1
                 
@@ -279,6 +285,8 @@ module Scrabble =
                 
                 let lastPlayedOnThisTile =fst (List.item ((List.length ms)-1) ms)
                 let secondLastPlayedTile =fst (List.item ((List.length ms)-2) ms)
+                
+                let lengtOfMove = List.length ms 
 
                 
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
