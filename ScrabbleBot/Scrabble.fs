@@ -51,12 +51,13 @@ module State =
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
         boardTiles    : Map<coord, char>
-        lastPlayedTile : coord 
+        lastPlayedTile : coord
+        secondLastPlayedTile: coord
         
         // Hvilke brikker ligger der?? (Map<coord, en slags tile>)
     }
 
-    let mkState b d pn h bt c= {board = b; dict = d;  playerNumber = pn; hand = h; boardTiles = bt; lastPlayedTile=c}
+    let mkState b d pn h bt cf cs= {board = b; dict = d;  playerNumber = pn; hand = h; boardTiles = bt; lastPlayedTile=cf; secondLastPlayedTile=cs}
 
     let board st         = st.board
     let dict st          = st.dict
@@ -64,6 +65,7 @@ module State =
     let hand st          = st.hand
     let boardTiles st   = st.boardTiles
     let lastPlayedTile st = st.lastPlayedTile
+    let secondLastPlayedTile st = st.secondLastPlayedTile
     
     //let removeFromHand ms (st : state) : state =
         //st.hand
@@ -241,8 +243,12 @@ module Scrabble =
                
             let selectLastInsertedKey = st.lastPlayedTile
 
-            let playRestOfMoves = findWordFromGivenTile st.lastPlayedTile                                                             
-            let move = (constructNextMove (playRestOfMoves)) 
+            let playRestOfMoves = findWordFromGivenTile st.lastPlayedTile  //spil på næstSidstPlacede
+            
+            //check om der er fundet et ord ellers prøv med andet sidste placerede
+            let checkOrFindWithSecondLasts =  if List.isEmpty (snd playRestOfMoves) then findWordFromGivenTile st.secondLastPlayedTile else playRestOfMoves
+                                                                       
+            let move = (constructNextMove (checkOrFindWithSecondLasts)) 
                         
             let a = "HEJ"
                        
@@ -272,9 +278,11 @@ module Scrabble =
                 let updateBoard = List.fold(fun x (coord,(_,(c,_)))-> Map.add coord c x) st.boardTiles ms
                 
                 let lastPlayedOnThisTile =fst (List.item ((List.length ms)-1) ms)
+                let secondLastPlayedTile =fst (List.item ((List.length ms)-2) ms)
+
                 
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = {st with hand = newSet; boardTiles = updateBoard; lastPlayedTile=lastPlayedOnThisTile}// This state needs to be updated
+                let st' = {st with hand = newSet; boardTiles = updateBoard; lastPlayedTile=lastPlayedOnThisTile; secondLastPlayedTile=secondLastPlayedTile}// This state needs to be updated
                 aux st'
             | RCM (CMPlayed (pid, ms, points)) ->
                 (* Successful play by other player. Update your state *)
@@ -319,5 +327,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet Map.empty (0,0))
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet Map.empty (0,0) (0,0))
         
