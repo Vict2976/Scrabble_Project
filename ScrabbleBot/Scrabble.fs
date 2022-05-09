@@ -174,7 +174,7 @@ module Scrabble =
             
             
             //Ideen er at have en startCoord. Hvor der ligger et bogstac. ListofSquares er dem der ligger rundt om startcoord.                            
-            let rec checkAroundTile (startCoord : coord) (newCoord : coord) (index : int) =
+            (*let rec checkAroundTile (startCoord : coord) (newCoord : coord) (index : int) =
                 let yDown = ((fst newCoord), (snd newCoord + 1))
                 let yUp = ((fst newCoord), (snd newCoord - 1))
                 let xLeft = ((fst newCoord - 1), (snd newCoord))
@@ -184,11 +184,25 @@ module Scrabble =
                 | Some v -> checkAroundTile startCoord listOfSquaresAround.[index] (index+1)
                 | None -> match Dictionary.step (Map.find startCoord st.boardTiles) st.dict with
                             |Some (v, dic) -> findWords newCoord charsInHand dic [(false, Map.find startCoord st.boardTiles)] []
-                            | None -> ((-1,-1), [])
-                
-                    
+                            | None -> ((-1,-1), [])*)
             
-                         
+            
+            //Den her tager om man skal til siden eller down giv en string med som indikator.     
+            let rec setNewStartCoordAndCallFindWord (startCoord: coord) (directionString:string)  =
+                match Map.tryFind startCoord st.boardTiles with
+                | Some v -> setNewStartCoordAndCallFindWord startCoord directionString
+                | None -> match Dictionary.step (Map.find startCoord st.boardTiles) st.dict with
+                            |Some (v, dic) -> findWords startCoord charsInHand dic [(false, Map.find startCoord st.boardTiles)] []
+                            | None -> ((-1,-1), [])
+            
+            
+            //Efter først ord er det 0,2
+            let findWordFromGivenTile (startCoord:coord)=                
+                match Map.tryFind startCoord st.boardTiles with
+                | Some v -> match Dictionary.step (Map.find startCoord st.boardTiles) st.dict with
+                            |Some (v, dic) -> findWords startCoord charsInHand dic [(false, Map.find startCoord st.boardTiles)] []
+                            | None -> ((-1,-1), [])
+
             
             //val ms: (coord * (uint32 * (char * int))) list                                                     
             let rec constructMove (charsInHand: (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =
@@ -240,44 +254,74 @@ module Scrabble =
                 match index with
                 | v -> if v = 0 then move@[tileFinal] else constructMoveDownWards charsInHand (move@[tileFinal]) (fst startingCoord, snd startingCoord+1) (index-1) direction
             
-            let constructMoveHelperFunc (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (startingCoord: coord) (index: int) (direction: string)=
+            let rec constructMoveRight (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (startingCoord: coord) (index: int) (direction: string)=
+                let isBlankTile = List.item index (snd charsInHand) |> fst
+                let charPointValue = Set.minElement (Map.find (Map.find (List.item index (snd charsInHand) |> snd) charToIntMapAlphabet) pieces)
+                let uintValue = (Map.find (List.item index (snd charsInHand) |> snd) charToIntMapAlphabet)
+                let tileNormal = (startingCoord,(uintValue,(charPointValue)))
                 
+                let tileJoker = (startingCoord), (0u, (fst charPointValue, 0)) //Jokertile giver altid 0 point
+                let tileFinal = if not isBlankTile then tileNormal else tileJoker
+                
+                match index with
+                | v -> if v = 0 then move@[tileFinal] else constructMoveDownWards charsInHand (move@[tileFinal]) (fst startingCoord+1, snd startingCoord) (index-1) direction
+            
+            
+            
+            let constructMoveHelperFunc (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (startingCoord: coord) (index: int) (direction: string)=
                 match direction with
-                | "Down" -> constructMoveDownWards charsInHand move startingCoord index direction
-                | _ -> []
+                | "down" -> constructMoveDownWards charsInHand move (fst startingCoord, snd startingCoord+1) index direction
+                | "right" -> constructMoveRight charsInHand move (fst startingCoord+1, snd startingCoord) index direction
       
-            let rec constructNextMove (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =
+            let checkDownWardsTile (startCoord: coord)  =
+                let koordinatTop = ((fst startCoord), (snd startCoord-1))
+                let koordinatLeft = ((fst startCoord-1), (snd startCoord))
+                let koordinatRight = ((fst startCoord+1),(snd startCoord))                
+                let koordinatDownwards = ((fst startCoord),(fst startCoord+1))
+                
+                let aux  =
+                    match Map.tryFind koordinatTop st.boardTiles with
+                    | Some v ->  "right"
+                    | None -> ""
+
+                match Map.tryFind koordinatLeft st.boardTiles with
+                | Some v -> "down"
+                | None -> aux 
+            
+            let rec constructNextMove (charsInHand: coord * (bool * char) list) =
 
                let reversCharsInHand = (fst charsInHand, List.rev (snd charsInHand))
-                              
-               let findDirectionCoord = (findDirectionForStartValue (fst charsInHand) (List.item 0 (snd reversCharsInHand)))
+
                
-               //let getFirstElementFromFindDirectionsCoord = takeOutElementFromList findDirectionCoord
-                
+               //Skal finde det koordinat hvor første bogstav allerede ligger på boardet. I de omkringliggende fire squares.                
+               let findDirectionCoord = (findDirectionForStartValue (fst charsInHand) (List.item 0 (snd reversCharsInHand)))             
                let directionString = setDirection findDirectionCoord (fst charsInHand)
-     
-               let findElementsFromListWhichAlreadyOnBoard =
-                   List.fold (fun acc element ->  match Map.tryFind element st.boardTiles with 
-                   | Some v -> v::acc
-                   | None -> acc) [] findDirectionCoord
                
-               let helperFunc el = List.fold(fun acc element -> if element = el then acc+1 else acc) 0 findElementsFromListWhichAlreadyOnBoard
-                   
-               let UpdatedHand = (fst charsInHand,List.fold (fun acc element -> if (helperFunc (snd element))>0 then acc else element::acc ) [] (snd reversCharsInHand))
+               //DirectionString, hvis der ligger noget til venstre skal der skrives nedad. Hvis der ligger noget i toppen skal der skrives til højre
+               let directionReal =  checkDownWardsTile (fst charsInHand)
+
+               let UpdatedHand = (fst charsInHand, (snd charsInHand).[0..(List.length (snd charsInHand)-2)])
                
-               let constructMove =constructMoveHelperFunc UpdatedHand [] (fst charsInHand) (List.length (snd UpdatedHand)-1 ) directionString
+               let constructMove = constructMoveHelperFunc UpdatedHand [] (fst charsInHand) (List.length (snd UpdatedHand)-1 ) directionReal
                constructMove
                
              
-               
-               
+            let selectLastInsertedKey =
+                if Map.isEmpty st.boardTiles then (0,0) else Map.fold(fun acc key value -> key) (0,0) st.boardTiles
          
-            let playFirstMove = if st.boardTiles.IsEmpty then List.rev (findFirstWord charsInHand st.dict [] []) else []
-            let playRestOfMoves = if st.boardTiles.IsEmpty then ((-1,-1),[])  else checkAroundTile (0,0) (0,0) 0    
+            let playFirstMove = if st.boardTiles.IsEmpty then List.rev (findFirstWord charsInHand st.dict [] []) else []            
+            //SKal lave det generisk så den checkerRund om noget andet end 0
+            let playRestOfMoves = if st.boardTiles.IsEmpty then ((-1,-1),[])  else findWordFromGivenTile selectLastInsertedKey  
                                                                         
             let move = if st.boardTiles.IsEmpty then constructMove playFirstMove [] ((List.length playFirstMove),(List.length playFirstMove)-1)
-                        else (constructNextMove (playRestOfMoves ) [] ((List.length (snd playRestOfMoves)),(List.length (snd playRestOfMoves))-1))
-              
+                        else (constructNextMove (playRestOfMoves ))
+             
+             
+            //Find den sidste indsatte koordinat. //Hvordan finder jeg om den skal til højre eller nedad. 
+            //Giv den med videre når der skal findes ord.
+            //Kald konstructMoveRight eller ConstructMoveLeft alt efter retningen. 
+             
+                        
                         
             //printfn "PlayfirstMove %A"  playFirstMove
             //printfn ":::MOVED %A"  move
