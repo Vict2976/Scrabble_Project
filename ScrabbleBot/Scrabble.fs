@@ -111,7 +111,7 @@ module Scrabble =
                 
                 let pointValues = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
                 
-                printfn "PIECES IN HAND %A" st.hand.Count
+                //printfn "PIECES IN HAND %A" st.hand.Count
                 printfn "CHARS IN HAND %A" (List.length charsInHand)   
                 
                 let rec add tileSet list (amount:uint) =
@@ -257,14 +257,21 @@ module Scrabble =
                    
                 let selectLastInsertedKey = st.lastPlayedTile
 
-                let playRestOfMoves1 = findWordFromGivenTile st.lastPlayedTile  //spil på næstSidstPlacede
-                let playRestOfMoves2 = findWordFromGivenTile st.secondLastPlayedTile
+                let playRestOfMoves1 = findWordFromGivenTile st.lastPlayedTile  //spil på Sidst Placerede tile
+                
+                //Check om der ligger noget på siderne af tiles i dette move. Hvis der går kan moved ikke spilles. Index 0 er det bogstav der ligger på boardet. Tjek på siderne af bogstavet i index 1.
+                let playRestOfMoves2 = findWordFromGivenTile st.secondLastPlayedTile //spil på næstsidst placerede tile
+                
 
                 //check om der er fundet et ord ellers prøv med andet sidste placerede
                 let checkOrFindWithSecondLasts =  if List.isEmpty (snd playRestOfMoves1) then playRestOfMoves2 else playRestOfMoves1
-                                                                           
-                let move = (constructNextMove (checkOrFindWithSecondLasts)) 
-                            
+                
+                //Hvis både playRestOfMoves1 og playRestOfMoves2 er tomme skal man enten "passe" eller få en ny hånd (discarde alle sine brikker)
+                
+                //let checkIfYouShouldPassOrGetNewHand = if playRestOfMoves1 && playRestOfMoves2 then //pass else check
+                
+                let move = if List.isEmpty (snd checkOrFindWithSecondLasts) then [((0,0), (0u ,('a',-100)))] else (constructNextMove (checkOrFindWithSecondLasts))       
+                
                 let a = "HEJ"
                            
                 // remove the force print when you move on from manual input (or when you have learnt the format)
@@ -274,7 +281,9 @@ module Scrabble =
                 let move = RegEx.parseMove input*)
 
                 debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-                send cstream (SMPlay move)
+                
+                if move = [((0,0), (0u ,('a',-100)))] then send cstream (SMPass) else send cstream (SMPlay move)
+
                 debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             let msg = recv cstream
@@ -326,7 +335,10 @@ module Scrabble =
                 let st' = st // This state needs to be updated
                 aux st'
             | RCM (CMGameOver _) -> ()
-            //| RCM (CMPassed (playerId)) ->  //Ændrer turen
+            | RCM (CMPassed (playerId)) ->  //Ændrer turen                
+                let playerTurn = st.playerTurn % st.numPlayers + 1u
+                let st' = {st with playerTurn = playerTurn}
+                aux st'
             //| RCM (CMChangeSuccess(newTiles)) -> You changed tiles
             //| RCM (CMForfeit (playerId)) -> // Truen må ikke gå til denn spiller igen
             | RCM a -> failwith (sprintf "not implmented: %A" a)
