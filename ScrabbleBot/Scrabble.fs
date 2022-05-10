@@ -49,6 +49,8 @@ module State =
         board         : Parser.board
         dict          : ScrabbleUtil.Dictionary.Dict
         playerNumber  : uint32
+        numPlayers    : uint32
+        playerTurn    : uint32
         hand          : MultiSet.MultiSet<uint32>
         boardTiles    : Map<coord, char>
         lastPlayedTile : coord
@@ -57,11 +59,13 @@ module State =
         // Hvilke brikker ligger der?? (Map<coord, en slags tile>)
     }
 
-    let mkState b d pn h bt cf cs= {board = b; dict = d;  playerNumber = pn; hand = h; boardTiles = bt; lastPlayedTile=cf; secondLastPlayedTile=cs}
+    let mkState b d pn np pt h bt cf cs= {board = b; dict = d;  playerNumber = pn; numPlayers = np; playerTurn = pt; hand = h; boardTiles = bt; lastPlayedTile=cf; secondLastPlayedTile=cs}
 
     let board st         = st.board
     let dict st          = st.dict
     let playerNumber st  = st.playerNumber
+    let numPlayers st = st.numPlayers
+    let playerTun st = st.playerTurn
     let hand st          = st.hand
     let boardTiles st   = st.boardTiles
     let lastPlayedTile st = st.lastPlayedTile
@@ -88,6 +92,11 @@ module Scrabble =
             Print.printHand pieces (State.hand st)
             //printfn "Updated Map: %A" st.boardTiles
             
+            //if st.playerTurn = st.playerNumber then
+            
+            //Er det vores tur? Spil, ellers ej - husk at opdater hvis tur det er
+            //Hvis en siger forfeit game, så kan man ikke få turen
+            
             let rec addAmount tileSet list (amount:uint) =
                 match amount with
                 | 0u -> list
@@ -102,6 +111,7 @@ module Scrabble =
             
             let pointValues = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
             
+            printfn "PIECES IN HAND %A" st.hand.Count
             printfn "CHARS IN HAND %A" (List.length charsInHand)   
             
             let rec add tileSet list (amount:uint) =
@@ -276,7 +286,15 @@ module Scrabble =
                 let lst = List.map (fun (_, (u, _)) -> u) ms
                 let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst
                 
-                let lst1 = List.map (fun (u, _) -> u) newPieces
+                let rec appendMultiple k v lst=
+                    match v with
+                    | 0u -> lst
+                    | _ -> appendMultiple k (v-1u) (k :: lst)
+                
+                let lst1 : list<uint32> = List.fold(fun acc ((k : uint32), (v : uint32)) -> if v > 1u then (appendMultiple k v acc) else k :: acc ) [] newPieces
+
+                //let lst1 = List.map (fun (u, _) -> u) newPieces
+                
                 let newSet = List.fold(fun acc x -> MultiSet.addSingle x acc) deletedSet lst1
                 
                 //Updating board
@@ -288,22 +306,28 @@ module Scrabble =
                 
                 let lengtOfMove = List.length ms 
 
-                
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
                 let st' = {st with hand = newSet; boardTiles = updateBoard; lastPlayedTile=lastPlayedOnThisTile; secondLastPlayedTile=secondLastPlayedTile}// This state needs to be updated
                 aux st'
             | RCM (CMPlayed (pid, ms, points)) ->
                 (* Successful play by other player. Update your state *)
                 
+                let lastPlayedOnThisTile =fst (List.item ((List.length ms)-1) ms)
+                let secondLastPlayedTile =fst (List.item ((List.length ms)-2) ms)
+                
                 let updateBoard = List.fold(fun x (coord,(_,(c,_)))-> Map.add coord c x) st.boardTiles ms
                 
-                let st' = {st with boardTiles = updateBoard} // This state needs to be updated
+                let st' = {st with boardTiles = updateBoard; lastPlayedTile=lastPlayedOnThisTile; secondLastPlayedTile=secondLastPlayedTile}// This state needs to be updated
                 aux st'
             | RCM (CMPlayFailed (pid, ms)) ->
                 (* Failed play. Update your state *)
                 let st' = st // This state needs to be updated
                 aux st'
             | RCM (CMGameOver _) -> ()
+            //| RCM (CMPassed (playerId)) ->  //Ændrer turen
+            //| RCM (CMChange (playerId, numberOfTiles)) -> //implemter change tiles - other player changed tiles
+            //| RCM (CMChangeSuccess(newTiles)) -> You changed tiles
+            //| RCM (CMForfeit (playerId)) -> // Truen må ikke gå til denn spiller igen
             | RCM a -> failwith (sprintf "not implmented: %A" a)
             | RGPE err -> printfn "Gameplay Error:\n%A" err; aux st
 
@@ -313,9 +337,9 @@ module Scrabble =
     let startGame 
             (boardP : boardProg) 
             (dictf : bool -> Dictionary.Dict) 
-            (numPlayers : uint32) 
-            (playerNumber : uint32) 
-            (playerTurn  : uint32) 
+            (numPlayers : uint32)  // hold styr på
+            (playerNumber : uint32)  // hold styr på
+            (playerTurn  : uint32) // Hold styr på
             (hand : (uint32 * uint32) list)
             (tiles : Map<uint32, tile>) // !!!
             (timeout : uint32 option)
@@ -335,5 +359,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet Map.empty (0,0) (0,0))
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber numPlayers playerTurn handSet Map.empty (0,0) (0,0))
         
