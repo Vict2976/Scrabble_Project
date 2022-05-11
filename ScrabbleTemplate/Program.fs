@@ -58,7 +58,7 @@ let main argv =
     
     let players = spawnMultiples "NiwlSamdVibr BotBot" dictionary NiwlSamdVibr.Scrabble.startGame 2
 
-    //let players = spawnMultiples "OxyphenButazone" dictionary Oxyphenbutazone.Scrabble.startGame 2
+    //let players = spawnMultiples "OxyphenButazone" dictionary Oxyphenbutazone.Scrabble.startGame 1
 
 
     do ScrabbleServer.Comm.startGame 
