@@ -56,12 +56,13 @@ module State =
         lastPlayedTile : coord
         secondLastPlayedTile: coord
         timesPassed   : uint32
+        tilesLeft : uint32
 
         
         // Hvilke brikker ligger der?? (Map<coord, en slags tile>)
     }
 
-    let mkState b d pn np pt h bt cf cs tp= {board = b; dict = d;  playerNumber = pn; numPlayers = np; playerTurn = pt; hand = h; boardTiles = bt; lastPlayedTile=cf; secondLastPlayedTile=cs; timesPassed = tp}
+    let mkState b d pn np pt h bt cf cs tp tl= {board = b; dict = d;  playerNumber = pn; numPlayers = np; playerTurn = pt; hand = h; boardTiles = bt; lastPlayedTile=cf; secondLastPlayedTile=cs; timesPassed = tp; tilesLeft=tl}
 
     let board st         = st.board
     let dict st          = st.dict
@@ -73,6 +74,7 @@ module State =
     let lastPlayedTile st = st.lastPlayedTile
     let secondLastPlayedTile st = st.secondLastPlayedTile
     let timesPassed st = st.timesPassed
+    let tilesLeft st = st.tilesLeft
     
     //let removeFromHand ms (st : state) : state =
         //st.hand
@@ -285,10 +287,12 @@ module Scrabble =
 
                 debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
                
-                //if st.timesPassed > 1u then printfn "NOOOOOOWWWWW %A" st.timesPassed 
-                if st.timesPassed > 0u then send cstream (SMChange id)
+                //if st.timesPassed > 1u then printfn "NOOOOOOWWWWW %A" st.timesPassed
+                
+                //if st.timesPassed > 0u then send cstream (SMChange id)
+
                 printfn "::::::: ID :::: %A" id
-                if move = [((0,0), (0u ,('a',-100)))] then send cstream (SMPass) else send cstream (SMPlay move)
+                if move = [((0,0), (0u ,('a',-100)))] then send cstream (SMChange id) else send cstream (SMPlay move)
                 
                 //then (if st.timesPassed > 1u then send cstream (CMChangeSuccess) else send cstream (SMPass))
                 debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
@@ -342,7 +346,8 @@ module Scrabble =
                 aux st'
             | RCM (CMPlayFailed (pid, ms)) ->
                 (* Failed play. Update your state *)
-                let st' = st // This state needs to be updated
+                let playerTurn = st.playerTurn % st.numPlayers + 1u
+                let st' = {st with playerTurn = playerTurn} // This state needs to be updated
                 aux st'
             | RCM (CMGameOver _) -> ()
             | RCM (CMPassed (playerId)) ->  //Ændrer turen                
@@ -353,22 +358,51 @@ module Scrabble =
             | RCM (CMChangeSuccess(newTiles)) ->
                 printfn ":::::---------------::::::::"
                 printfn "CHANING TILES %A" newTiles
-                let rec appendMultiple k v lst=
+                (*let rec appendMultiple k v lst=
                     match v with
                     | 0u -> lst
                     | _ -> appendMultiple k (v-1u) (k :: lst)
                 let lst : list<uint32> = List.fold(fun acc ((k : uint32), (v : uint32)) -> if v > 1u then (appendMultiple k v acc) else k :: acc ) [] newTiles
-                let newSet = List.fold(fun acc x -> MultiSet.addSingle x acc) MultiSet.empty lst
+                let newSet = List.fold(fun acc x -> MultiSet.addSingle x acc) MultiSet.empty lst*)
+                let newSet = List.fold(fun acc (id, amount) -> MultiSet.add id amount acc) MultiSet.empty newTiles
+                printfn "NEW TILLLESSSS :^^^^ %A" newTiles
                 let timesPassed = 0u
                 let playerTurn = st.playerTurn % st.numPlayers + 1u
                 let st' = {st with hand = newSet; timesPassed = timesPassed; playerTurn = playerTurn}
+                printfn "NEW HAAAAND :^^^^ %A" newSet
                 aux st'
-            //| RCM (CMForfeit (playerId)) -> // Truen må ikke gå til denn spiller igen
+            | RCM (CMChange (playerId, numberOfTiles)) ->
+                printfn "Player changed tiles: %A, %A" playerId numberOfTiles
+                let playerTurn = st.playerTurn % st.numPlayers + 1u
+                let st' = {st with playerTurn = playerTurn}
+                aux st'
+            //| RCM (CMForfeit (playerId)) -> // Turen må ikke gå til den "forfeitede" spiller igen
             | RCM a -> failwith (sprintf "not implmented: %A" a)
-            | RGPE err -> printfn "Gameplay Error:\n%A" err; aux st
-
-
+            | RGPE err ->
+                let tilesLeft =
+                    List.fold (fun acc element ->
+                        match element with
+                        | GPENotEnoughPieces(_, piecesLeft) -> piecesLeft
+                        | _ -> acc
+                        ) st.tilesLeft err
+                printfn "Gameplay Error:\n%A" err; aux st
+                let playerTurn = st.playerTurn % st.numPlayers + 1u
+                let st' = {st with playerTurn = playerTurn; tilesLeft = tilesLeft}
+                aux st'             
         aux st
+        
+        
+        
+        (*let result =
+            List.fold
+                (fun state element ->
+                    match element with
+                    | GPENotEnoughPieces(a,b) ->
+                        let s = {st with tilesLeft = b}
+                        s
+                    | _ -> printfn "Gameplay Error:\n%A" element; state
+                    ) st err
+    aux result*)
 
     let startGame 
             (boardP : boardProg) 
@@ -395,5 +429,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber numPlayers playerTurn handSet Map.empty (0,0) (0,0) 0u)
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber numPlayers playerTurn handSet Map.empty (0,0) (0,0) 0u (MultiSet.size handSet))
         
