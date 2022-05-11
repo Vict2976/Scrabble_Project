@@ -287,9 +287,7 @@ module Scrabble =
 
                 debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
                
-                //if st.timesPassed > 1u then printfn "NOOOOOOWWWWW %A" st.timesPassed
-                
-                //if st.timesPassed > 0u then send cstream (SMChange id)
+                if st.tilesLeft = 0u then send cstream (SMPass)
 
                 printfn "::::::: ID :::: %A" id
                 if move = [((0,0), (0u ,('a',-100)))] then send cstream (SMChange id) else send cstream (SMPlay move)
@@ -346,8 +344,9 @@ module Scrabble =
                 aux st'
             | RCM (CMPlayFailed (pid, ms)) ->
                 (* Failed play. Update your state *)
-                let playerTurn = st.playerTurn % st.numPlayers + 1u
-                let st' = {st with playerTurn = playerTurn} // This state needs to be updated
+                //let playerTurn = st.playerTurn % st.numPlayers + 1u
+                //let st' = {st with playerTurn = playerTurn} // This state needs to be updated
+                let st' = st
                 aux st'
             | RCM (CMGameOver _) -> ()
             | RCM (CMPassed (playerId)) ->  //Ændrer turen                
@@ -382,7 +381,7 @@ module Scrabble =
                 let tilesLeft =
                     List.fold (fun acc element ->
                         match element with
-                        | GPENotEnoughPieces(_, piecesLeft) -> piecesLeft
+                        | GPENotEnoughPieces(_, piecesLeft) -> piecesLeft 
                         | _ -> acc
                         ) st.tilesLeft err
                 printfn "Gameplay Error:\n%A" err; aux st
