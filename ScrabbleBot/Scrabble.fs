@@ -268,14 +268,52 @@ module Scrabble =
                 let playRestOfMoves2 = findWordFromGivenTile st.secondLastPlayedTile //spil på næstsidst placerede tile
                 
 
+                let checkSidesPlayResOfMoves2 (wordFound: coord * (bool * char) list) (directionsString: string) =
+                    if List.length (snd wordFound) =0 then true else
+                        //let firstTileAddedToBoardFromMove = List.item (List.length (snd wordFound)-2) (snd wordFound)
+                    //Når moved bliver lagt lodret:: tror det virker for begge retninger
+                        //Coords to check depending on directionString
+                        if directionsString = "right" then 
+                            let tileToTheTop = (fst (fst wordFound)+1, snd (fst wordFound)-1)
+                            let tileToTheDown = (fst (fst wordFound)+1, snd (fst wordFound)+1)
+                            
+                            let coordsList = [tileToTheTop;tileToTheDown]
+
+                            let aux tilesOnSide list =
+                                match Map.tryFind tilesOnSide st.boardTiles with
+                                | Some v -> v::list  //Skal den appendes på venstre side af firstTileAddedToBoardFromMove
+                                | None -> list //Kald med det på højre side
+
+                            let returnedList = List.fold (fun acc element -> aux element acc) [] coordsList
+                            not (List.isEmpty returnedList) 
+                        else
+                            let tileToTheLeft = (fst (fst wordFound)-1, snd (fst wordFound)+1)
+                            let tileToTheRight = (fst (fst wordFound)+1, snd (fst wordFound)+1)
+
+                            let coordsList = [tileToTheLeft;tileToTheRight]
+
+                            let aux tilesOnSide list =
+                                match Map.tryFind tilesOnSide st.boardTiles with
+                                | Some v -> v::list  //Skal den appendes på venstre side af firstTileAddedToBoardFromMove
+                                | None -> list //Kald med det på højre side
+
+                            let returnedList = List.fold (fun acc element -> aux element acc) [] coordsList
+                            not (List.isEmpty returnedList) 
+                
+
                 //check om der er fundet et ord ellers prøv med andet sidste placerede
-                let checkOrFindWithSecondLasts =  if List.isEmpty (snd playRestOfMoves1) then playRestOfMoves2 else playRestOfMoves1
+                //let checkOrFindWithSecondLasts =  if List.isEmpty (snd playRestOfMoves1) then playRestOfMoves2 else playRestOfMoves1
+                let checkOrFindWithSecondLasts =  if List.isEmpty (snd playRestOfMoves2) then playRestOfMoves1 else playRestOfMoves2
+
+                let getDirectionForSideCheck = if Map.isEmpty st.boardTiles then "down" else checkDownWardsTile (fst checkOrFindWithSecondLasts)
                 
                 //Hvis både playRestOfMoves1 og playRestOfMoves2 er tomme skal man enten "passe" eller få en ny hånd (discarde alle sine brikker)
+
+                //let isSecondMovePlayableDownWards = checkSidesPlayResOfMoves2 playRestOfMoves2
                 
-                //let checkIfYouShouldPassOrGetNewHand = if playRestOfMoves1 && playRestOfMoves2 then //pass else check
+                let checkSides = (checkSidesPlayResOfMoves2 checkOrFindWithSecondLasts getDirectionForSideCheck)
                 
-                let move = if List.isEmpty (snd checkOrFindWithSecondLasts) then [((0,0), (0u ,('a',-100)))] else (constructNextMove (checkOrFindWithSecondLasts))       
+                let move = if List.isEmpty (snd checkOrFindWithSecondLasts) || checkSides = true then [((0,0), (0u ,('a',-100)))] else (constructNextMove (playRestOfMoves2))
                 
                 let a = "HEJ"
                            
