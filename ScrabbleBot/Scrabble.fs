@@ -257,59 +257,18 @@ module Scrabble =
                 match direction with
                 | "down" -> constructMoveDownWards charsInHand move (fst startingCoord, snd startingCoord+1) index direction
                 | "right" -> if startingCoord = (0,0) then constructMoveDownWards charsInHand move startingCoord index direction else constructMoveRight charsInHand move (fst startingCoord+1, snd startingCoord) index direction
-                //| "rightFirstMove"-> constructMoveRight charsInHand [] (0,0) 
       
             let rec constructNextMove (charsInHand: coord * (bool * char) list) (direction: string)=
                //Måske kan vi give direction med i stedet for at den tjekker for det her. 
-               //let directionReal = if fst charsInHand = (0,0) then "right" else getDirection (fst charsInHand)
                let UpdatedHand = if fst charsInHand = (0,0) then charsInHand else (fst charsInHand, (snd charsInHand).[0..(List.length (snd charsInHand)-2)])  
                let constructMove = constructMoveHelperFunc UpdatedHand [] (fst charsInHand) (List.length (snd UpdatedHand)-1 ) direction
                constructMove
-               
 
-            (*let checkSidesPlayResOfMoves2 (wordFound: coord * (bool * char) list) (directionsString: string) =
-                if List.length (snd wordFound) =0 then true else
-                    //let firstTileAddedToBoardFromMove = List.item (List.length (snd wordFound)-2) (snd wordFound)
-                //Når moved bliver lagt lodret:: tror det virker for begge retninger
-                    //Coords to check depending on directionString
-                    if directionsString = "right" then 
-                        let tileToTheTop = (fst (fst wordFound)+1, snd (fst wordFound)-1)
-                        let tileToTheDown = (fst (fst wordFound)+1, snd (fst wordFound)+1)
-                        
-                        let coordsList = [tileToTheTop;tileToTheDown]
-
-                        let aux tilesOnSide list =
-                            match Map.tryFind tilesOnSide st.boardTiles with
-                            | Some v -> v::list  //Skal den appendes på venstre side af firstTileAddedToBoardFromMove
-                            | None -> list //Kald med det på højre side
-
-                        let returnedList = List.fold (fun acc element -> aux element acc) [] coordsList
-                        not (List.isEmpty returnedList) 
-                    else
-                        let tileToTheLeft = (fst (fst wordFound)-1, snd (fst wordFound)+1)
-                        let tileToTheRight = (fst (fst wordFound)+1, snd (fst wordFound)+1)
-
-                        let coordsList = [tileToTheLeft;tileToTheRight]
-
-                        let aux tilesOnSide list =
-                            match Map.tryFind tilesOnSide st.boardTiles with
-                            | Some v -> v::list  //Skal den appendes på venstre side af firstTileAddedToBoardFromMove
-                            | None -> list //Kald med det på højre side
-
-                        let returnedList = List.fold (fun acc element -> aux element acc) [] coordsList
-                        not (List.isEmpty returnedList) *)
-            
-
-            //check om der er fundet et ord ellers prøv med andet sidste placerede
-            //let checkOrFindWithSecondLasts =  if List.isEmpty (snd playRestOfMoves1) then playRestOfMoves2 else playRestOfMoves1
-            
-            //Fold over mappet med tiles:
-            
-            //MÅske vi bare skal gemme midterBogstaverne og så lave ord ud fra dem
             let playALLMoves =
-                Map.fold (fun state key value -> (findWordFromGivenTile key)::state) [] st.boardTiles
-                
-                
+                Map.fold (fun state key value ->
+                    let word = findWordFromGivenTile key
+                    if snd word = [] then state else word::state) [] st.boardTiles
+                    
             let setDirectionForAllMoves =
                 List.fold(fun acc element -> ((getDirection (fst element)),(element)) ::acc) [] playALLMoves
 
@@ -322,7 +281,7 @@ module Scrabble =
             let checkIfMoveIsPlayableOnBoard (direction:string ) (move :(coord * (bool * char) list)) =
                 let (a,b) = fst move
                 if direction = "right" then
-                    let firstFreeTile = (a+1,b)
+                    let middleTile = (a+1,b)
                     let tileUp = (a+1,b-1)
                     let tileDown = (a+1,b+1)
                     //let tilesToCheck = tilesToCheckRight (fst move) (List.length (snd move)) []
@@ -330,13 +289,25 @@ module Scrabble =
                         match Map.tryFind koord st.boardTiles with
                         | Some v -> v::lst
                         | None -> lst
-                    let returnedList = List.fold (fun acc element -> aux element acc) [] [firstFreeTile; tileUp; tileDown]
+                    let returnedList = List.fold (fun acc element -> aux element acc) [] [middleTile; tileUp; tileDown]
                     List.isEmpty returnedList //Hvis listen er empty kan moved spilles, da der ikke liger noget omkring nogle af brikkerne.
-                else true
+                else
+                    let middleTile = (a,b+1)
+                    let tileleft = (a-1,b+1)
+                    let tileRight = (a+1,b+1)
+                    //let tilesToCheck = tilesToCheckRight (fst move) (List.length (snd move)) []
+                    let aux (koord:coord) lst =
+                        match Map.tryFind koord st.boardTiles with
+                        | Some v -> v::lst
+                        | None -> lst
+                    let returnedList = List.fold (fun acc element -> aux element acc) [] [middleTile; tileleft; tileRight]
+                    List.isEmpty returnedList //Hvis listen er empty kan moved spilles, da der ikke liger noget omkring nogle af brikkerne.
             
             
             let AllMovesThatCanBePlayed = List.fold (fun acc element -> if (checkIfMoveIsPlayableOnBoard (fst element) (snd element)) = true then (element)::acc else acc ) [] setDirectionForAllMoves
-
+            
+            let TESTwordsFOUND = AllMovesThatCanBePlayed
+            
             let playMove =
                 if Map.isEmpty st.boardTiles then
                     let firstWord = findWordFromGivenTile (0,0) //Find første ord
@@ -346,6 +317,8 @@ module Scrabble =
                     let moveToPlay = AllMovesThatCanBePlayed[0]
                     let move = constructNextMove (snd moveToPlay) (fst moveToPlay)
                     move
+            
+            let TESTConstructedMOVE = playMove        
                             
             let move = playMove
                            
