@@ -331,7 +331,6 @@ module Scrabble =
                 let st' = {st with hand = newSet; timesPassed = timesPassed; playerTurn = playerTurn; tilesLeft = tilesLeft}
                 aux st'
             | RCM (CMChange (playerId, numberOfTiles)) ->
-                printfn "Player changed tiles: %A, %A" playerId numberOfTiles
                 let playerTurn = st.playerTurn % st.numPlayers + 1u
                 let st' = {st with playerTurn = playerTurn}
                 aux st'
