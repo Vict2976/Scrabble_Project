@@ -302,10 +302,6 @@ module Scrabble =
                 aux st'
             | RCM (CMPlayed (pid, ms, points)) ->
                 (* Successful play by other player. Update your state *)
-                
-                let lastPlayedOnThisTile =fst (List.item ((List.length ms)-1) ms)
-                let secondLastPlayedTile =fst (List.item ((List.length ms)-2) ms)
-                
                 let updateBoard = List.fold(fun x (coord,(_,(c,_)))-> Map.add coord c x) st.boardTiles ms
                 let playerTurn = st.playerTurn % st.numPlayers + 1u
                 let timesPassed = 0u
@@ -323,9 +319,13 @@ module Scrabble =
                 let st' = {st with playerTurn = playerTurn; timesPassed = timesPassed}
                 aux st'
             | RCM (CMChangeSuccess(newTiles)) ->
-               
-                let tilesLeft = st.tilesLeft - uint32(List.length newTiles)
-                let newSet = List.fold(fun acc (id, amount) -> MultiSet.add id amount acc) MultiSet.empty newTiles
+                let rec appendMultiple k v lst=
+                    match v with
+                    | 0u -> lst
+                    | _ -> appendMultiple k (v-1u) (k :: lst)
+                let lst1 : list<uint32> = List.fold(fun acc ((k : uint32), (v : uint32)) -> if v > 1u then (appendMultiple k v acc) else k :: acc ) [] newTiles                
+                let newSet = List.fold(fun acc x -> MultiSet.addSingle x acc) MultiSet.empty lst1
+                let tilesLeft = st.tilesLeft - uint32(List.length lst1)                
                 let timesPassed = 0u
                 let playerTurn = st.playerTurn % st.numPlayers + 1u
                 let st' = {st with hand = newSet; timesPassed = timesPassed; playerTurn = playerTurn; tilesLeft = tilesLeft}
@@ -335,21 +335,8 @@ module Scrabble =
                 let playerTurn = st.playerTurn % st.numPlayers + 1u
                 let st' = {st with playerTurn = playerTurn}
                 aux st'
-            //| RCM (CMForfeit (playerId)) -> // Turen må ikke gå til den "forfeitede" spiller igen
             | RCM a -> failwith (sprintf "not implmented: %A" a)
-            | RGPE err ->
-                (*let tilesLeft =
-                    List.fold (fun acc element ->
-                        match element with
-                        | GPENotEnoughPieces(_, piecesLeft) -> piecesLeft 
-                        | _ -> acc
-                        ) st.tilesLeft err
-                printfn "CharsInHand %A" st.hand
-                printfn "TilesLeft from ERRO %A" tilesLeft *)  
-                printfn "Gameplay Error:\n%A" err; aux st
-                let st' = {st with tilesLeft = 0u}
-                printfn "STATE tiles left after State is set %A" st'.tilesLeft 
-                aux st'
+            | RGPE err -> printfn "Gameplay Error:\n%A" err; aux st
         aux st
 
 
