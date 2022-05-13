@@ -7,6 +7,7 @@ open ScrabbleUtil.ServerCommunication
 open System.IO
 
 open ScrabbleUtil.DebugPrint
+open StateMonad
 
 // The RegEx module is only used to parse human input. It is not used for the final product.
 
@@ -94,7 +95,7 @@ module Scrabble =
     let playGame cstream pieces (st : State.state) =
 
         let rec aux (st : State.state) =
-            Print.printHand pieces (State.hand st)
+            //Print.printHand pieces (State.hand st)
             //printfn "Updated Map: %A" st.boardTiles
             
           
@@ -117,7 +118,7 @@ module Scrabble =
             let pointValues = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
             
             //printfn "PIECES IN HAND %A" st.hand.Count
-            printfn "CHARS IN HAND %A" (List.length charsInHand)   
+            //printfn "CHARS IN HAND %A" (List.length charsInHand)   
             
             let rec add tileSet list (amount:uint) =
                 match amount with
@@ -340,30 +341,32 @@ module Scrabble =
             
             let AllMovesThatCanBePlayed = List.fold (fun acc element -> if (checkIfMoveIsPlayableOnBoard (fst element) (snd element)) = true then (element)::acc else acc ) [] setDirectionForAllMoves
             
-            let TESTwordsFOUND = AllMovesThatCanBePlayed
+            //let TESTwordsFOUND = AllMovesThatCanBePlayed
             
             let playMove =
                 if Map.isEmpty st.boardTiles then
                     let firstWord = findWordFromGivenTile (0,0) //Find første ord
-                    let constructedMove = constructNextMove firstWord "right" //
+                    let constructedMove = if List.isEmpty (snd firstWord) then [((0,0), (0u ,('a',-100)))] else constructNextMove firstWord "right" //
                     constructedMove
                 else
-                    let moveToPlay = AllMovesThatCanBePlayed[0]
-                    let move = constructNextMove (snd moveToPlay) (fst moveToPlay)
+                    let moveToPlay = if (List.isEmpty AllMovesThatCanBePlayed) then (" ",(((-100,-100 :coord),[true,'A']))) else  AllMovesThatCanBePlayed[0]
+                    let moveBefore = if moveToPlay= (" ",(((-100,-100 :coord),[true,'A']))) then [((-100,-100), (0u ,('a',-100)))] else  constructNextMove (snd moveToPlay) (fst moveToPlay)
+                    let move = if (fst moveBefore[0]) = (0,0) then [((-100,-100), (0u ,('a',-100)))] else moveBefore
                     move
-            
-            let TESTConstructedMOVE = playMove        
+
+           
                             
             let move = playMove
+            printfn "tilesLeft %A" st.tilesLeft
             
-            let isEmptyMove = List.isEmpty playMove
+            let tileToHand = if st.tilesLeft < 7u then st.tilesLeft else 7u
             
-            if isEmptyMove then send cstream (SMPass) else send cstream (SMPlay move)
-            
+            if move = [((-100,-100), (0u ,('a',-100)))] then send cstream (SMChange id[0.. (int tileToHand)-1]) else send cstream (SMPlay move)
+                        
             //send cstream (SMPass)
                            
             // remove the force print when you move on from manual input (or when you have learnt the format)
-            forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
+            //forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
@@ -387,9 +390,10 @@ module Scrabble =
                 //Updating board
                 //val ms: (coord * (uint32 * (char * int))) list
                 let updateBoard = List.fold(fun x (coord,(_,(c,_)))-> Map.add coord c x) st.boardTiles ms
-
+                
+                let tilesLeft = st.tilesLeft - uint32(List.length ms)
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = {st with hand = newSet; boardTiles = updateBoard;}// This state needs to be updated
+                let st' = {st with hand = newSet; boardTiles = updateBoard; tilesLeft = tilesLeft}// This state needs to be updated
                 aux st'
             | RCM (CMPlayed (pid, ms, points)) ->
                 (* Successful play by other player. Update your state *)
@@ -418,17 +422,12 @@ module Scrabble =
             | RCM (CMChangeSuccess(newTiles)) ->
                 printfn ":::::---------------::::::::"
                 printfn "CHANING TILES %A" newTiles
-                (*let rec appendMultiple k v lst=
-                    match v with
-                    | 0u -> lst
-                    | _ -> appendMultiple k (v-1u) (k :: lst)
-                let lst : list<uint32> = List.fold(fun acc ((k : uint32), (v : uint32)) -> if v > 1u then (appendMultiple k v acc) else k :: acc ) [] newTiles
-                let newSet = List.fold(fun acc x -> MultiSet.addSingle x acc) MultiSet.empty lst*)
+                let tilesLeft = st.tilesLeft - uint32(List.length newTiles)
                 let newSet = List.fold(fun acc (id, amount) -> MultiSet.add id amount acc) MultiSet.empty newTiles
                 printfn "NEW TILLLESSSS :^^^^ %A" newTiles
                 let timesPassed = 0u
                 let playerTurn = st.playerTurn % st.numPlayers + 1u
-                let st' = {st with hand = newSet; timesPassed = timesPassed; playerTurn = playerTurn}
+                let st' = {st with hand = newSet; timesPassed = timesPassed; playerTurn = playerTurn; tilesLeft = tilesLeft}
                 printfn "NEW HAAAAND :^^^^ %A" newSet
                 aux st'
             | RCM (CMChange (playerId, numberOfTiles)) ->
@@ -439,16 +438,18 @@ module Scrabble =
             //| RCM (CMForfeit (playerId)) -> // Turen må ikke gå til den "forfeitede" spiller igen
             | RCM a -> failwith (sprintf "not implmented: %A" a)
             | RGPE err ->
-                let tilesLeft =
+                (*let tilesLeft =
                     List.fold (fun acc element ->
                         match element with
                         | GPENotEnoughPieces(_, piecesLeft) -> piecesLeft 
                         | _ -> acc
                         ) st.tilesLeft err
+                printfn "CharsInHand %A" st.hand
+                printfn "TilesLeft from ERRO %A" tilesLeft *)  
                 printfn "Gameplay Error:\n%A" err; aux st
-                let playerTurn = st.playerTurn % st.numPlayers + 1u
-                let st' = {st with playerTurn = playerTurn; tilesLeft = tilesLeft}
-                aux st'             
+                let st' = {st with tilesLeft = 0u}
+                printfn "STATE tiles left after State is set %A" st'.tilesLeft 
+                aux st'
         aux st
         
         
@@ -489,5 +490,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber numPlayers playerTurn handSet Map.empty (0,0) (0,0) 0u (MultiSet.size handSet))
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber numPlayers playerTurn handSet Map.empty (0,0) (0,0) 0u 100u)
         
