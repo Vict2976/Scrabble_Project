@@ -276,11 +276,24 @@ module Scrabble =
                 let (a,b) = startCoord
                 match index with
                 | i -> if i >= 0 then tilesToCheckRight startCoord (index-1) ((a,b+i)::returnList) else returnList*)
-
+            (*let rec makeCoordinatsRight (startcoord:coord) (lengthOfList:int) (listOfCoords) =
+                //Når der skal spilles "right"
+                match lengthOfList with
+                | v -> if v != 0 then
+                    let middleTile = (a+1,b)
+                    let tileUp = (a+1,b-1)
+                    let tileDown = (a+1,b+1)
+                    let tileRightMiddle = (a+2,b)*)
+                    
+                
+            
             //Kan moved spilles. Tjek Op/Ned eller Højre/Venstre og på pladsen
             let checkIfMoveIsPlayableOnBoard (direction:string ) (move :(coord * (bool * char) list)) =
+                let lengtOfWord = List.length (snd move)
+                
                 let (a,b) = fst move
                 if direction = "right" then
+                    
                     let middleTile = (a+1,b)
                     let tileUp = (a+1,b-1)
                     let tileDown = (a+1,b+1)
