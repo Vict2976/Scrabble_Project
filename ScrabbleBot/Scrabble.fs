@@ -355,12 +355,16 @@ module Scrabble =
             let TESTConstructedMOVE = playMove        
                             
             let move = playMove
+            
+            let isEmptyMove = List.isEmpty playMove
+            
+            if isEmptyMove then send cstream (SMPass) else send cstream (SMPlay move)
+            
+            //send cstream (SMPass)
                            
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-
-            send cstream (SMPlay move)
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
 
@@ -383,8 +387,6 @@ module Scrabble =
                 //Updating board
                 //val ms: (coord * (uint32 * (char * int))) list
                 let updateBoard = List.fold(fun x (coord,(_,(c,_)))-> Map.add coord c x) st.boardTiles ms
-
-                          
 
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
                 let st' = {st with hand = newSet; boardTiles = updateBoard;}// This state needs to be updated
