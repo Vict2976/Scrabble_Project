@@ -272,10 +272,10 @@ module Scrabble =
             let setDirectionForAllMoves =
                 List.fold(fun acc element -> ((getDirection (fst element)),(element)) ::acc) [] playALLMoves
 
-            let rec tilesToCheckRight (startCoord:coord) (index: int)  (returnList:list<coord>)=
+            (*let rec tilesToCheckRight (startCoord:coord) (index: int)  (returnList:list<coord>)=
                 let (a,b) = startCoord
                 match index with
-                | i -> if i >= 0 then tilesToCheckRight startCoord (index-1) ((a,b+i)::returnList) else returnList
+                | i -> if i >= 0 then tilesToCheckRight startCoord (index-1) ((a,b+i)::returnList) else returnList*)
 
             //Kan moved spilles. Tjek Op/Ned eller Højre/Venstre og på pladsen
             let checkIfMoveIsPlayableOnBoard (direction:string ) (move :(coord * (bool * char) list)) =
@@ -284,23 +284,25 @@ module Scrabble =
                     let middleTile = (a+1,b)
                     let tileUp = (a+1,b-1)
                     let tileDown = (a+1,b+1)
+                    let tileRightMiddle = (a+2,b) 
                     //let tilesToCheck = tilesToCheckRight (fst move) (List.length (snd move)) []
                     let aux (koord:coord) lst =
                         match Map.tryFind koord st.boardTiles with
                         | Some v -> v::lst
                         | None -> lst
-                    let returnedList = List.fold (fun acc element -> aux element acc) [] [middleTile; tileUp; tileDown]
+                    let returnedList = List.fold (fun acc element -> aux element acc) [] [middleTile; tileUp; tileDown; tileRightMiddle]
                     List.isEmpty returnedList //Hvis listen er empty kan moved spilles, da der ikke liger noget omkring nogle af brikkerne.
                 else
                     let middleTile = (a,b+1)
                     let tileleft = (a-1,b+1)
                     let tileRight = (a+1,b+1)
+                    let tileDownMiddle = (a,b+2)
                     //let tilesToCheck = tilesToCheckRight (fst move) (List.length (snd move)) []
                     let aux (koord:coord) lst =
                         match Map.tryFind koord st.boardTiles with
                         | Some v -> v::lst
                         | None -> lst
-                    let returnedList = List.fold (fun acc element -> aux element acc) [] [middleTile; tileleft; tileRight]
+                    let returnedList = List.fold (fun acc element -> aux element acc) [] [middleTile; tileleft; tileRight; tileDownMiddle]
                     List.isEmpty returnedList //Hvis listen er empty kan moved spilles, da der ikke liger noget omkring nogle af brikkerne.
             
             
