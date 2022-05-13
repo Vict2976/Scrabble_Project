@@ -7,6 +7,7 @@ open ScrabbleUtil.ServerCommunication
 open System.IO
 
 open ScrabbleUtil.DebugPrint
+open StateMonad
 
 // The RegEx module is only used to parse human input. It is not used for the final product.
 
@@ -49,19 +50,32 @@ module State =
         board         : Parser.board
         dict          : ScrabbleUtil.Dictionary.Dict
         playerNumber  : uint32
+        numPlayers    : uint32
+        playerTurn    : uint32
         hand          : MultiSet.MultiSet<uint32>
         boardTiles    : Map<coord, char>
+        lastPlayedTile : coord
+        secondLastPlayedTile: coord
+        timesPassed   : uint32
+        tilesLeft : uint32
+
         
         // Hvilke brikker ligger der?? (Map<coord, en slags tile>)
     }
 
-    let mkState b d pn h bt = {board = b; dict = d;  playerNumber = pn; hand = h; boardTiles = bt}
+    let mkState b d pn np pt h bt cf cs tp tl= {board = b; dict = d;  playerNumber = pn; numPlayers = np; playerTurn = pt; hand = h; boardTiles = bt; lastPlayedTile=cf; secondLastPlayedTile=cs; timesPassed = tp; tilesLeft=tl}
 
     let board st         = st.board
     let dict st          = st.dict
     let playerNumber st  = st.playerNumber
+    let numPlayers st = st.numPlayers
+    let playerTun st = st.playerTurn
     let hand st          = st.hand
     let boardTiles st   = st.boardTiles
+    let lastPlayedTile st = st.lastPlayedTile
+    let secondLastPlayedTile st = st.secondLastPlayedTile
+    let timesPassed st = st.timesPassed
+    let tilesLeft st = st.tilesLeft
     
     //let removeFromHand ms (st : state) : state =
         //st.hand
@@ -81,8 +95,13 @@ module Scrabble =
     let playGame cstream pieces (st : State.state) =
 
         let rec aux (st : State.state) =
-            Print.printHand pieces (State.hand st)
-            printfn "Updated Map: %A" st.boardTiles
+            //Print.printHand pieces (State.hand st)
+            //printfn "Updated Map: %A" st.boardTiles
+            
+          
+                
+            //Er det vores tur? Spil, ellers ej - husk at opdater hvis tur det er
+            //Hvis en siger forfeit game, så kan man ikke få turen
             
             let rec addAmount tileSet list (amount:uint) =
                 match amount with
@@ -92,9 +111,14 @@ module Scrabble =
             let findTiles pieces hand = MultiSet.fold (fun acc id amount-> addAmount (Map.find id pieces) acc amount) [] hand
             let newHand  = findTiles pieces st.hand
             
-            let chars = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) @ acc) [] newHand
+            let charsInHand : list<list<char>> = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) :: acc) [] newHand
+            
+            let chars1  = List.fold(fun acc set -> (Set.fold(fun acc pair -> fst pair :: acc) [] set) @ acc) [] newHand
+            
             let pointValues = List.fold(fun acc set -> (Set.fold(fun acc pair -> snd pair :: acc) [] set) @ acc) [] newHand
             
+            //printfn "PIECES IN HAND %A" st.hand.Count
+            //printfn "CHARS IN HAND %A" (List.length charsInHand)   
             
             let rec add tileSet list (amount:uint) =
                 match amount with
@@ -104,37 +128,42 @@ module Scrabble =
             let id = MultiSet.foldBack (fun id n acc -> add id acc n) st.hand []
             
             
-            
-  //i findword, bogstaver vi har tilbage på hånd, der hvor vi er nået til i dict,
-  //char vi har ind til videre, det ord vi har fundet so far.
-            
-            //CurrentWord 'H'E'Z'
-            //FoundWord H'E
-            
-            //resterende hånd
-            // acc = resternde 6 nogstaver samtidig med FoundWord - Måske tuple?
-            //List.remove (elemtet som vi er kommet til) hand
-            
-           // acc = (i, foundWord)
-            
-            //Mangler: Sammenligne currentword med foundword og så retunere største ord 
-            
-             
-            
-            let rec findWord (hand: list<char>) (D : Dictionary.Dict )(currentWord : list<char>) (FoundWord : list<char>) =
-                let aux (i, acc) e =
-                  match Dictionary.step e D with
-                  | Some (true, Drest) -> (i+1, findWord (List.removeAt i hand) Drest (e::currentWord) (e::currentWord))
-                  | Some (false, Drest) -> (i+1, findWord (List.removeAt i hand) Drest (e::currentWord) acc)
-                  | None -> (i, acc)
+            let removeElementFromHand (hand: char list list) (char: char list) =
+                List.fold(fun (b, newList) current -> if current=char && not b then (true, newList) else (b,current::newList)) (false, []) hand |> snd
+        
+            let rec findFirstWord (hand: char list list) (D : Dictionary.Dict )(currentWord : (bool * char) list) (FoundWord : (bool * char) list) : (bool * char) list=
+                let aux (i, acc) (e : char list) =
+                  let boolFlag = List.length e > 1
+                  List.fold(fun state element ->  
+                      match Dictionary.step element D with
+                      | Some (true, Drest) -> (i+1, findFirstWord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) ((boolFlag, element)::currentWord))
+                      | Some (false, Drest) -> (i+1, findFirstWord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) (snd state))
+                      | None -> state) (i,acc) e
                 match hand with
                 | [] -> FoundWord
-                | hand1 -> List.fold aux (0, FoundWord) hand1 |> snd 
+                | hand1 -> List.fold aux (0, FoundWord) hand1 |> snd
                 
-                    
-                
-            //let test = findWord ['X';'H';'E';'L';'L';'O'] st.dict [] []
+                //Lav hjælpemetode der tjekker om current FoundWord er større end foundWord. Kald recursivt med det længste.
+            let helpFindLongestWord (FoundWord : (bool * char) list) (currentWord : (bool * char) list)=
+                if List.length FoundWord > List.length currentWord then FoundWord else currentWord
             
+            
+            let rec findWords (directionCoord : coord) (hand: char list list) (D : Dictionary.Dict ) (currentWord : (bool * char) list) (FoundWord : (bool * char) list) : coord * (bool * char) list =
+                let aux (acc) (e : char list) =
+                  let boolFlag = List.length e > 1
+                  
+                  List.fold(fun state element ->  
+                      match Dictionary.step element D with
+                      | Some (true, Drest) -> (findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord)  (helpFindLongestWord FoundWord ((boolFlag, element)::currentWord)))
+                      | Some (false, Drest) -> (findWords directionCoord (removeElementFromHand hand e) Drest ((boolFlag, element)::currentWord) (snd state))
+                      | None -> state) (acc) e
+                
+                //Hvis der ligger noget stepper vi nedad i dictionary og kalder findwor dmed næste koordinat. Og hvis dictionary giver noget tilbage. 
+               
+                match hand with
+                | [] -> (directionCoord, FoundWord)
+                | hand1 -> List.fold aux (directionCoord, FoundWord) hand1  
+                 
             //start of the game. If the map is empty findword from hand and play it.
             let charToIntMapAlphabet = Map.add 'A' 1u Map.empty |> Map.add 'B' 2u |> Map.add 'C' 3u |> Map.add 'D' 4u |> Map.add 'E' 5u |> Map.add 'F' 6u
                                        |> Map.add 'G' 7u|> Map.add 'H' 8u |> Map.add 'I' 9u |> Map.add 'J' 10u |> Map.add 'K' 11u |> Map.add 'L' 12u
@@ -142,116 +171,306 @@ module Scrabble =
                                        |> Map.add 'S' 19u |> Map.add 'T' 20u |> Map.add 'U' 21u |> Map.add 'V' 22u |> Map.add 'W' 23u |> Map.add 'X' 24u
                                        |> Map.add 'Y' 25u |> Map.add 'Z' 26u
             
-            let playFirstMove =
-                if st.boardTiles.IsEmpty then List.rev (findWord chars st.dict [] []) else []
             
-             
-            printfn "PlayFirstMove %A" playFirstMove                
+            //Ideen er at have en startCoord. Hvor der ligger et bogstac. ListofSquares er dem der ligger rundt om startcoord.                            
+            (*let rec checkAroundTile (startCoord : coord) (newCoord : coord) (index : int) =
+                let yDown = ((fst newCoord), (snd newCoord + 1))
+                let yUp = ((fst newCoord), (snd newCoord - 1))
+                let xLeft = ((fst newCoord - 1), (snd newCoord))
+                let xRight = ((fst newCoord + 1), (snd newCoord))
+                let listOfSquaresAround = [yDown; yUp; xLeft; xRight]
+                match Map.tryFind newCoord st.boardTiles with
+                | Some v -> checkAroundTile startCoord listOfSquaresAround.[index] (index+1)
+                | None -> match Dictionary.step (Map.find startCoord st.boardTiles) st.dict with
+                            |Some (v, dic) -> findWords newCoord charsInHand dic [(false, Map.find startCoord st.boardTiles)] []
+                            | None -> ((-1,-1), [])*)
+            
+
+            let findWordFromGivenTile (startCoord:coord)=                
+                match Map.tryFind startCoord st.boardTiles with
+                | Some v -> match Dictionary.step (Map.find startCoord st.boardTiles) st.dict with
+                            |Some (v, dic) -> findWords startCoord charsInHand dic [(false, Map.find startCoord st.boardTiles)] []
+                            | None -> ((0,0),findFirstWord charsInHand st.dict [] [])
+                |None -> ((0,0),findFirstWord charsInHand st.dict [] [])
+
             
             //val ms: (coord * (uint32 * (char * int))) list                                                     
-            let rec constructMove (chars:list<char>) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =               
-               
-               //Todo:: Den blanke brik er en edge case. Der kan man ikke bare bruge set.Minelement, da der er mange elementer.             
+            (*let rec constructMove (charsInHand: (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (index : (int*int)) =
                let aux nyListe stadie =
-                   let tile = (((snd index),0):coord),((Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet),
-                                                       Set.minElement (Map.find (Map.find (List.item ((fst index)-1) chars) charToIntMapAlphabet) pieces))               
+                   let isBlankTile = List.item ((fst index)-1) charsInHand |> fst
+                   let charAndPointValue = Set.minElement (Map.find (Map.find (List.item ((fst index)-1) charsInHand |> snd) charToIntMapAlphabet) pieces)   
+                   let tileNormal = (((snd index),0):coord),((Map.find (List.item ((fst index)-1) charsInHand |> snd) charToIntMapAlphabet),
+                                                       Set.minElement (Map.find (Map.find (List.item ((fst index)-1) charsInHand |> snd) charToIntMapAlphabet) pieces))  
+                   let tileJoker = ((snd index,0):coord), (0u, (fst charAndPointValue, 0)) //Jokertile giver altid 0 point
+                   let tileFinal = if not isBlankTile then tileNormal else tileJoker
                    match stadie with
-                   | (i,n) -> constructMove chars (tile::nyListe) (i-1,n-1)
-               
+                   | (i,n) -> constructMove charsInHand (tileFinal::nyListe) (i-1,n-1)
                match index with
                | (0,_) -> move
-               | (i,n) -> aux move (i,n)                 
-                                                                        
-               
-            let move = constructMove playFirstMove [] ((List.length playFirstMove),(List.length playFirstMove)-1)
-            printfn "KÆMPE TEST På Move %A"  move
-               
-          
+               | (i,n) -> aux move (i,n)*)
+            
 
-            //fold hen over hånden
-            //
-            //  MultiSet.fold (fun acc key value ->
-            // find char by key
-            // step into dict with the char
-            // remove char from hand
-            // call findWord recursively
             
-           // ) [] st.hand
-            
-            let test4 =
-                Dictionary.step 'H' st.dict
-                |> Option.bind (fun (b, dict') ->
-                    Dictionary.step 'E' dict' |> Option.bind (fun (b, dict') ->
-                        Dictionary.step 'Y' dict'))
-                                
-            (*
-            let test1 =
-                Dictionary.step 'H' st.dict
-                |> Option.bind (fun (b, dict') ->
-                    Dictionary.step 'E' dict' |> Option.bind (fun (b, dict') ->
-                        Dictionary.step 'Y' dict'))
-            
-            let test2 =
-                Dictionary.step 'H' st.dict
-                |> Option.bind (fun (b, dict') ->
-                    Dictionary.step 'E' dict')
+            let rec constructMoveDownWards (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (startingCoord: coord) (index: int) (direction: string)=
+                let isBlankTile = List.item index (snd charsInHand) |> fst
+                let charPointValue = Set.minElement (Map.find (Map.find (List.item index (snd charsInHand) |> snd) charToIntMapAlphabet) pieces)
+                let uintValue = (Map.find (List.item index (snd charsInHand) |> snd) charToIntMapAlphabet)
+                let tileNormal = (startingCoord,(uintValue,(charPointValue)))
                 
-            let test3 = Dictionary.step 'H' st.dict
-             
-            printf "TEST H,E,Y,X: %A" test4
-            printf "TEST H,E,Y : %A" test1
-            printf "TEST H,E : %A" test2
-            printf "TEST H: %A" test3
-            *)
-
-            // remove the force print when you move on from manual input (or when you have learnt the format)
-            forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
+                let tileJoker = (startingCoord), (0u, (fst charPointValue, 0)) //Jokertile giver altid 0 point
+                let tileFinal = if not isBlankTile then tileNormal else tileJoker
+                
+                match index with
+                | v -> if v = 0 then move@[tileFinal] else constructMoveDownWards charsInHand (move@[tileFinal]) (fst startingCoord, snd startingCoord+1) (index-1) direction
             
-            (*let input =  System.Console.ReadLine()
-            let move = RegEx.parseMove input*)
+            let rec constructMoveRight (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (startingCoord: coord) (index: int) (direction: string)=
+                let isBlankTile = List.item index (snd charsInHand) |> fst
+                let charPointValue = Set.minElement (Map.find (Map.find (List.item index (snd charsInHand) |> snd) charToIntMapAlphabet) pieces)
+                let uintValue = (Map.find (List.item index (snd charsInHand) |> snd) charToIntMapAlphabet)
+                let tileNormal = (startingCoord,(uintValue,(charPointValue)))
+                
+                let tileJoker = (startingCoord), (0u, (fst charPointValue, 0)) //Jokertile giver altid 0 point
+                let tileFinal = if not isBlankTile then tileNormal else tileJoker
+                
+                match index with
+                | v -> if v = 0 then move@[tileFinal] else constructMoveRight charsInHand (move@[tileFinal]) (fst startingCoord+1, snd startingCoord) (index-1) direction
+            
 
-            debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-            send cstream (SMPlay move)
+            
+            let getDirection (startCoord: coord)  =
+                let koordinatTop = ((fst startCoord), (snd startCoord-1))
+                let koordinatLeft = ((fst startCoord-1), (snd startCoord))
+                let koordinatRight = ((fst startCoord+1),(snd startCoord))                
+                let koordinatDownwards = ((fst startCoord),(fst startCoord+1))
+                let checkDownwards =
+                    match Map.tryFind koordinatDownwards st.boardTiles with
+                    |Some v -> "right"
+                    | None -> " " //burde aldrig ske nu 
+                let aux  =
+                    match Map.tryFind koordinatTop st.boardTiles with
+                    | Some v ->  "right"
+                    | None -> checkDownwards
+                match Map.tryFind koordinatLeft st.boardTiles with
+                | Some v -> "down"
+                | None -> aux 
+            
+            let constructMoveHelperFunc (charsInHand: coord * (bool * char) list) (move: list<((int * int) * (uint32 * (char * int)))>) (startingCoord: coord) (index: int) (direction: string)=
+                match direction with
+                | "down" -> constructMoveDownWards charsInHand move (fst startingCoord, snd startingCoord+1) index direction
+                | "right" -> if startingCoord = (0,0) then constructMoveDownWards charsInHand move startingCoord index direction else constructMoveRight charsInHand move (fst startingCoord+1, snd startingCoord) index direction
+      
+            let rec constructNextMove (charsInHand: coord * (bool * char) list) (direction: string)=
+               //Måske kan vi give direction med i stedet for at den tjekker for det her. 
+               let UpdatedHand = if fst charsInHand = (0,0) then charsInHand else (fst charsInHand, (snd charsInHand).[0..(List.length (snd charsInHand)-2)])  
+               let constructMove = constructMoveHelperFunc UpdatedHand [] (fst charsInHand) (List.length (snd UpdatedHand)-1 ) direction
+               constructMove
+
+            let playALLMoves =
+                Map.fold (fun state key value ->
+                    let word = findWordFromGivenTile key
+                    if snd word = [] then state else word::state) [] st.boardTiles
+                    
+            let setDirectionForAllMoves =
+                List.fold(fun acc element -> ((getDirection (fst element)),(element)) ::acc) [] playALLMoves
+
+            (*let rec tilesToCheckRight (startCoord:coord) (index: int)  (returnList:list<coord>)=
+                let (a,b) = startCoord
+                match index with
+                | i -> if i >= 0 then tilesToCheckRight startCoord (index-1) ((a,b+i)::returnList) else returnList*)
+            
+            
+            let rec makeCoordinatsRight (startcoord) (lengthOfList:int) (listOfCoords: list<int*int>) =
+                //Når der skal spilles "right"
+                match lengthOfList with
+                | v -> if v > 0 then
+                    let middleTile = (fst startcoord+1,snd startcoord)
+                    let tileUp = (fst startcoord+1,snd startcoord-1)
+                    let tileDown = (fst startcoord+1,snd startcoord+1)
+                    let tileRightMiddle = (fst startcoord+2,snd startcoord)
+                    makeCoordinatsRight middleTile (lengthOfList-1) ([middleTile;tileUp;tileDown;tileRightMiddle]@listOfCoords)
+                        else listOfCoords
+            
+            let rec makeCoordinatsDown (startcoord) (lengthOfList:int) (listOfCoords: list<int*int>) =
+                //Når der skal spilles "down"
+                match lengthOfList with
+                | v -> if v > 0 then
+
+                    let middleTile = (fst startcoord,snd startcoord+1)
+                    let tileleft = (fst startcoord-1,snd startcoord+1)
+                    let tileRight = (fst startcoord+1,snd startcoord+1)
+                    let tileDownMiddle = (fst startcoord,snd startcoord+2)
+                    makeCoordinatsDown middleTile (lengthOfList-1) ([middleTile;tileleft;tileRight;tileDownMiddle]@listOfCoords)
+                        else listOfCoords 
+             
+             //makeCoordinatsRight (fst startcoord+1,snd startcoord) (lengthOfList-1) [(fst startcoord+1,snd startcoord);(fst startcoord+1,snd startcoord-1);(fst startcoord+1,snd startcoord+1);(fst startcoord+2,snd startcoord)]@ listOfCoords       
+
+            //Kan moved spilles. Tjek Op/Ned eller Højre/Venstre og på pladsen
+            let checkIfMoveIsPlayableOnBoard (direction:string ) (move :(coord * (bool * char) list)) =
+                let lenghtOfWord = (List.length (snd move)-1) 
+
+                let (a,b) = fst move
+                if direction = "right" then
+                    
+                    (*let middleTile = (a+1,b)
+                    let tileUp = (a+1,b-1)
+                    let tileDown = (a+1,b+1)
+                    let tileRightMiddle = (a+2,b)*)
+                    let listOfTilesToCheck = makeCoordinatsRight (fst move) lenghtOfWord []
+
+                    //let tilesToCheck = tilesToCheckRight (fst move) (List.length (snd move)) []
+                    let aux (koord:coord) lst =
+                        match Map.tryFind koord st.boardTiles with
+                        | Some v -> v::lst
+                        | None -> lst
+                    let returnedList = List.fold (fun acc element -> aux element acc) [] listOfTilesToCheck
+                    List.isEmpty returnedList //Hvis listen er empty kan moved spilles, da der ikke liger noget omkring nogle af brikkerne.
+                else
+                    (*let middleTile = (a,b+1)
+                    let tileleft = (a-1,b+1)
+                    let tileRight = (a+1,b+1)
+                    let tileDownMiddle = (a,b+2)*)
+                    //let tilesToCheck = tilesToCheckRight (fst move) (List.length (snd move)) []
+                    let listOfTilesCheck = makeCoordinatsDown (fst move) lenghtOfWord []
+                    let aux (koord:coord) lst =
+                        match Map.tryFind koord st.boardTiles with
+                        | Some v -> v::lst
+                        | None -> lst
+                    let returnedList = List.fold (fun acc element -> aux element acc) [] listOfTilesCheck
+                    List.isEmpty returnedList //Hvis listen er empty kan moved spilles, da der ikke liger noget omkring nogle af brikkerne.
+            
+            
+            let AllMovesThatCanBePlayed = List.fold (fun acc element -> if (checkIfMoveIsPlayableOnBoard (fst element) (snd element)) = true then (element)::acc else acc ) [] setDirectionForAllMoves
+            
+            //let TESTwordsFOUND = AllMovesThatCanBePlayed
+            
+            let playMove =
+                if Map.isEmpty st.boardTiles then
+                    let firstWord = findWordFromGivenTile (0,0) //Find første ord
+                    let constructedMove = if List.isEmpty (snd firstWord) then [((0,0), (0u ,('a',-100)))] else constructNextMove firstWord "right" //
+                    constructedMove
+                else
+                    let moveToPlay = if (List.isEmpty AllMovesThatCanBePlayed) then (" ",(((-100,-100 :coord),[true,'A']))) else  AllMovesThatCanBePlayed[0]
+                    let moveBefore = if moveToPlay= (" ",(((-100,-100 :coord),[true,'A']))) then [((-100,-100), (0u ,('a',-100)))] else  constructNextMove (snd moveToPlay) (fst moveToPlay)
+                    let move = if (fst moveBefore[0]) = (0,0) then [((-100,-100), (0u ,('a',-100)))] else moveBefore
+                    move
+
+           
+                            
+            let move = playMove
+            printfn "tilesLeft %A" st.tilesLeft
+            
+            let tileToHand = if st.tilesLeft < 7u then st.tilesLeft else 7u
+            
+            if move = [((-100,-100), (0u ,('a',-100)))] then send cstream (SMChange id[0.. (int tileToHand)-1]) else send cstream (SMPlay move)
+                        
+            //send cstream (SMPass)
+                           
+            // remove the force print when you move on from manual input (or when you have learnt the format)
+            //forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
+            debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
+            debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
+
 
             let msg = recv cstream
-            debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 //Updating hand
                 let lst = List.map (fun (_, (u, _)) -> u) ms
-                let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst                                     
-                let lst1 = List.map (fun (u, _) -> u) newPieces
+                let deletedSet = List.fold(fun acc x -> MultiSet.removeSingle x acc) st.hand lst
+                
+                let rec appendMultiple k v lst=
+                    match v with
+                    | 0u -> lst
+                    | _ -> appendMultiple k (v-1u) (k :: lst)
+                
+                let lst1 : list<uint32> = List.fold(fun acc ((k : uint32), (v : uint32)) -> if v > 1u then (appendMultiple k v acc) else k :: acc ) [] newPieces                
                 let newSet = List.fold(fun acc x -> MultiSet.addSingle x acc) deletedSet lst1
                 
                 //Updating board
                 //val ms: (coord * (uint32 * (char * int))) list
                 let updateBoard = List.fold(fun x (coord,(_,(c,_)))-> Map.add coord c x) st.boardTiles ms
                 
+                let tilesLeft = st.tilesLeft - uint32(List.length ms)
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = {st with hand = newSet; boardTiles = updateBoard}// This state needs to be updated
+                let st' = {st with hand = newSet; boardTiles = updateBoard; tilesLeft = tilesLeft}// This state needs to be updated
                 aux st'
             | RCM (CMPlayed (pid, ms, points)) ->
                 (* Successful play by other player. Update your state *)
-                let st' = st // This state needs to be updated
+                
+                let lastPlayedOnThisTile =fst (List.item ((List.length ms)-1) ms)
+                let secondLastPlayedTile =fst (List.item ((List.length ms)-2) ms)
+                
+                let updateBoard = List.fold(fun x (coord,(_,(c,_)))-> Map.add coord c x) st.boardTiles ms
+                let playerTurn = st.playerTurn % st.numPlayers + 1u
+                let timesPassed = 0u
+             
+                let st' = {st with boardTiles = updateBoard; lastPlayedTile=lastPlayedOnThisTile; secondLastPlayedTile=secondLastPlayedTile; playerTurn = playerTurn; timesPassed = timesPassed}// This state needs to be updated
                 aux st'
             | RCM (CMPlayFailed (pid, ms)) ->
                 (* Failed play. Update your state *)
-                let st' = st // This state needs to be updated
+                //let playerTurn = st.playerTurn % st.numPlayers + 1u
+                //let st' = {st with playerTurn = playerTurn} // This state needs to be updated
+                let st' = st
                 aux st'
             | RCM (CMGameOver _) -> ()
+            | RCM (CMPassed (playerId)) ->  //Ændrer turen                
+                let playerTurn = st.playerTurn % st.numPlayers + 1u
+                let timesPassed = st.timesPassed + 1u
+                let st' = {st with playerTurn = playerTurn; timesPassed = timesPassed}
+                aux st'
+            | RCM (CMChangeSuccess(newTiles)) ->
+                printfn ":::::---------------::::::::"
+                printfn "CHANING TILES %A" newTiles
+                let tilesLeft = st.tilesLeft - uint32(List.length newTiles)
+                let newSet = List.fold(fun acc (id, amount) -> MultiSet.add id amount acc) MultiSet.empty newTiles
+                printfn "NEW TILLLESSSS :^^^^ %A" newTiles
+                let timesPassed = 0u
+                let playerTurn = st.playerTurn % st.numPlayers + 1u
+                let st' = {st with hand = newSet; timesPassed = timesPassed; playerTurn = playerTurn; tilesLeft = tilesLeft}
+                printfn "NEW HAAAAND :^^^^ %A" newSet
+                aux st'
+            | RCM (CMChange (playerId, numberOfTiles)) ->
+                printfn "Player changed tiles: %A, %A" playerId numberOfTiles
+                let playerTurn = st.playerTurn % st.numPlayers + 1u
+                let st' = {st with playerTurn = playerTurn}
+                aux st'
+            //| RCM (CMForfeit (playerId)) -> // Turen må ikke gå til den "forfeitede" spiller igen
             | RCM a -> failwith (sprintf "not implmented: %A" a)
-            | RGPE err -> printfn "Gameplay Error:\n%A" err; aux st
-
-
+            | RGPE err ->
+                (*let tilesLeft =
+                    List.fold (fun acc element ->
+                        match element with
+                        | GPENotEnoughPieces(_, piecesLeft) -> piecesLeft 
+                        | _ -> acc
+                        ) st.tilesLeft err
+                printfn "CharsInHand %A" st.hand
+                printfn "TilesLeft from ERRO %A" tilesLeft *)  
+                printfn "Gameplay Error:\n%A" err; aux st
+                let st' = {st with tilesLeft = 0u}
+                printfn "STATE tiles left after State is set %A" st'.tilesLeft 
+                aux st'
         aux st
+        
+        
+        
+        (*let result =
+            List.fold
+                (fun state element ->
+                    match element with
+                    | GPENotEnoughPieces(a,b) ->
+                        let s = {st with tilesLeft = b}
+                        s
+                    | _ -> printfn "Gameplay Error:\n%A" element; state
+                    ) st err
+    aux result*)
 
     let startGame 
             (boardP : boardProg) 
             (dictf : bool -> Dictionary.Dict) 
-            (numPlayers : uint32) 
-            (playerNumber : uint32) 
-            (playerTurn  : uint32) 
+            (numPlayers : uint32)  // hold styr på
+            (playerNumber : uint32)  // hold styr på
+            (playerTurn  : uint32) // Hold styr på
             (hand : (uint32 * uint32) list)
             (tiles : Map<uint32, tile>) // !!!
             (timeout : uint32 option)
@@ -271,5 +490,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet Map.empty)
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber numPlayers playerTurn handSet Map.empty (0,0) (0,0) 0u 100u)
         
