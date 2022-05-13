@@ -276,46 +276,65 @@ module Scrabble =
                 let (a,b) = startCoord
                 match index with
                 | i -> if i >= 0 then tilesToCheckRight startCoord (index-1) ((a,b+i)::returnList) else returnList*)
-            (*let rec makeCoordinatsRight (startcoord:coord) (lengthOfList:int) (listOfCoords) =
+            
+            
+            let rec makeCoordinatsRight (startcoord) (lengthOfList:int) (listOfCoords: list<int*int>) =
                 //Når der skal spilles "right"
                 match lengthOfList with
-                | v -> if v != 0 then
-                    let middleTile = (a+1,b)
-                    let tileUp = (a+1,b-1)
-                    let tileDown = (a+1,b+1)
-                    let tileRightMiddle = (a+2,b)*)
-                    
-                
+                | v -> if v > 0 then
+                    let middleTile = (fst startcoord+1,snd startcoord)
+                    let tileUp = (fst startcoord+1,snd startcoord-1)
+                    let tileDown = (fst startcoord+1,snd startcoord+1)
+                    let tileRightMiddle = (fst startcoord+2,snd startcoord)
+                    makeCoordinatsRight middleTile (lengthOfList-1) ([middleTile;tileUp;tileDown;tileRightMiddle]@listOfCoords)
+                        else listOfCoords
             
+            let rec makeCoordinatsDown (startcoord) (lengthOfList:int) (listOfCoords: list<int*int>) =
+                //Når der skal spilles "down"
+                match lengthOfList with
+                | v -> if v > 0 then
+
+                    let middleTile = (fst startcoord,snd startcoord+1)
+                    let tileleft = (fst startcoord-1,snd startcoord+1)
+                    let tileRight = (fst startcoord+1,snd startcoord+1)
+                    let tileDownMiddle = (fst startcoord,snd startcoord+2)
+                    makeCoordinatsDown middleTile (lengthOfList-1) ([middleTile;tileleft;tileRight;tileDownMiddle]@listOfCoords)
+                        else listOfCoords 
+             
+             //makeCoordinatsRight (fst startcoord+1,snd startcoord) (lengthOfList-1) [(fst startcoord+1,snd startcoord);(fst startcoord+1,snd startcoord-1);(fst startcoord+1,snd startcoord+1);(fst startcoord+2,snd startcoord)]@ listOfCoords       
+
             //Kan moved spilles. Tjek Op/Ned eller Højre/Venstre og på pladsen
             let checkIfMoveIsPlayableOnBoard (direction:string ) (move :(coord * (bool * char) list)) =
-                let lengtOfWord = List.length (snd move)
-                
+                let lenghtOfWord = (List.length (snd move)-1) 
+
                 let (a,b) = fst move
                 if direction = "right" then
                     
-                    let middleTile = (a+1,b)
+                    (*let middleTile = (a+1,b)
                     let tileUp = (a+1,b-1)
                     let tileDown = (a+1,b+1)
-                    let tileRightMiddle = (a+2,b) 
+                    let tileRightMiddle = (a+2,b)*)
+                    let listOfTilesToCheck = makeCoordinatsRight (fst move) lenghtOfWord []
+
                     //let tilesToCheck = tilesToCheckRight (fst move) (List.length (snd move)) []
                     let aux (koord:coord) lst =
                         match Map.tryFind koord st.boardTiles with
                         | Some v -> v::lst
                         | None -> lst
-                    let returnedList = List.fold (fun acc element -> aux element acc) [] [middleTile; tileUp; tileDown; tileRightMiddle]
+                    let returnedList = List.fold (fun acc element -> aux element acc) [] listOfTilesToCheck
                     List.isEmpty returnedList //Hvis listen er empty kan moved spilles, da der ikke liger noget omkring nogle af brikkerne.
                 else
-                    let middleTile = (a,b+1)
+                    (*let middleTile = (a,b+1)
                     let tileleft = (a-1,b+1)
                     let tileRight = (a+1,b+1)
-                    let tileDownMiddle = (a,b+2)
+                    let tileDownMiddle = (a,b+2)*)
                     //let tilesToCheck = tilesToCheckRight (fst move) (List.length (snd move)) []
+                    let listOfTilesCheck = makeCoordinatsDown (fst move) lenghtOfWord []
                     let aux (koord:coord) lst =
                         match Map.tryFind koord st.boardTiles with
                         | Some v -> v::lst
                         | None -> lst
-                    let returnedList = List.fold (fun acc element -> aux element acc) [] [middleTile; tileleft; tileRight; tileDownMiddle]
+                    let returnedList = List.fold (fun acc element -> aux element acc) [] listOfTilesCheck
                     List.isEmpty returnedList //Hvis listen er empty kan moved spilles, da der ikke liger noget omkring nogle af brikkerne.
             
             
